@@ -1,0 +1,17 @@
+{
+    "inputdir": "./example/results/input", 
+    "outputdir": "./example/results/output", 
+    "skilldir": "./example/skill", 
+    "testsdir": "./example/tests", 
+    "bypass": false, 
+    "regen": false, 
+    "numtasks": 1, 
+    "ttsmethod": "espeak", 
+    "invocation": "your skill's invocation name", 
+    "email": "your AVS email address", 
+    "password": "your AVS password", 
+    "clientid": "your AVS device clientid", 
+    "secret": "your AVS device secret", 
+    "deviceid": "your AVS device type ID",
+    "redirect": "your AVS device redirect URL"
+}

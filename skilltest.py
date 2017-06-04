@@ -94,6 +94,25 @@ def run_avs(filepfx):
         print()
         raise e
 
+class Options(object):
+    def __init__(self):
+        setattr(self, "file", None)
+        self.merge_dict(CFG)
+
+    def load_config(self, path):
+        if os.path.exists(path):
+            with open(path, "rt") as c:
+                self.merge_dict(json.load(c))
+
+    def merge_dict(self, opts):
+        for opt in opts:
+            setattr(self, opt, opts[opt])
+
+    def merge_args(self, opts):
+        for opt in vars(opts):
+            if getattr(opts, opt): 
+                setattr(self, opt, getattr(opts, opt))
+
 class Tester(object):
     def __init__(self):
         self.parser = argparse.ArgumentParser(prog="skilltest", add_help=False)
@@ -135,8 +154,7 @@ class Tester(object):
 
             # Merge any embedded config options
             if "config" in test:
-                for var in test["config"]:
-                    setattr(OPTS, var, test["config"][var])
+                OPTS.merge_dict(test["config"])
 
             print()
             print("=" * 80)
@@ -320,6 +338,10 @@ class TTS(object):
 
     def sapiTTS(self, text):
         if PLAT == "win32":
+            # Need comtypes if we're using SAPI under native Windows (not WSL)
+            from comtypes.client import CreateObject
+            from comtypes.gen import SpeechLib
+
             # We want 16kHz, 16-bit, mono audio
             afmt = CreateObject("sapi.SpAudioFormat")
             afmt.Type = SpeechLib.SAFT16kHz16BitMono
@@ -593,24 +615,26 @@ def main():
     multiprocessing.log_to_stderr()
 
     parser = argparse.ArgumentParser(description='Alexa Skill Tester')
-    parser.add_argument("file", nargs="+",
+    parser.add_argument("file", nargs="*",
                         help="name of test file(s)")
-    parser.add_argument("-b", "--bypass", default=False, action="store_const", const=True,
-                        help="bypass calling AVS to process utterance")
-    parser.add_argument("-c", "--config", type=str, default="./.config",
+    parser.add_argument("-C", "--config", type=file,
                         help="path to configuration file")
-    parser.add_argument("-i", "--inputdir", type=str,
+    parser.add_argument("-I", "--inputdir", type=str,
                         help="path to voice input directory")
+    parser.add_argument("-O", "--outputdir", type=str,
+                        help="path to voice output directory")
+    parser.add_argument("-S", "--skilldir", type=str,
+                        help="path to skill directory")
+    parser.add_argument("-T", "--testsdir", type=str,
+                        help="path to tests directory")
+    parser.add_argument("-b", "--bypass", action="store_const", const=True,
+                        help="bypass calling AVS to process utterance")
+    parser.add_argument("-i", "--invocation", type=str,
+                        help="invocation name of skill")
     parser.add_argument("-n", "--numtasks", type=int,
                         help="number of concurrent requests to run")
-    parser.add_argument("-o", "--outputdir", type=str,
-                        help="path to voice output directory")
-    parser.add_argument("-r", "--regen", default=False, action="store_const", const=True,
+    parser.add_argument("-r", "--regen", action="store_const", const=True,
                         help="regenerate voice input files")
-    parser.add_argument("-s", "--skilldir", type=str,
-                        help="path to skill directory")
-    parser.add_argument("-t", "--testsdir", type=str,
-                        help="path to tests directory")
     parser.add_argument("-v", "--voice", choices=["espeak", "osx", "sapi"],
                         help="TTS synthesizer to use")
     parser.add_argument("-w", "--writeconfig",
@@ -627,29 +651,26 @@ def main():
             print("Couldn't generate config file:", args.writeconfig)
         quit()
 
-    try:
-        with open(args.config, "rt") as c:
-            BaseOptions = type("BaseOptions", (), json.load(c))
-    except:
-        print("Couldn't load config file %s" % args.config)
-        quit()
-
     # Create an instance of our base options
-    OPTS = BaseOptions()
+    OPTS = Options()
+
+    # Merge in any global options
+    OPTS.load_config(os.path.expanduser("~/.skilltest"))
+
+    # Merge in any local options
+    OPTS.load_config("./.skilltest")
+
+    # A command line config file overrides global and local configs
+    if args.config:
+        OPTS = Options()
+        OPTS.merge_dict(json.load(args.config))
 
     # Merge args into the options
-    for arg in vars(args):
-        if getattr(args,arg):
-            setattr(OPTS, arg, getattr(args, arg))
+    OPTS.merge_args(args)
 
-    # Need comtypes if we're using SAPI under native Windows (not WSL)
-    if OPTS.ttsmethod == "sapi" and PLAT == "win32":
-        from comtypes.client import CreateObject
-        from comtypes.gen import SpeechLib
-
+    # Run the tests
     tester = Tester()
-
-    if len(OPTS.file) > 0:
+    if OPTS.file:
         for name in OPTS.file:
             tester.process(name)
     else:

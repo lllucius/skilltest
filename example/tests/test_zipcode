@@ -1,0 +1,21 @@
+{
+    "description":
+    [
+        "Make sure zip code handling works correctly"
+    ],
+    "utterances":
+    [
+        "text 'For the alerts in {zipcode}'",
+        "text 'For the alerts in zip code {zipcode}'"
+    ],
+    "types":
+    {
+        "zipcode":
+        [
+            "file --digits '{testsdir}/type_zipcode'",
+            "text --digits 12142",
+            "text --digits 11112"
+        ]
+    }
+}
+       

@@ -1,0 +1,17 @@
+{
+    "description":
+    [
+        "Make sure all of the possessive day references are handled properly"
+    ],
+    "utterances":
+    [
+        "text 'for {when_pos} pressure'"
+    ],
+    "types":
+    {
+        "when_pos":
+        [
+            "file '{skilldir}/type_when_pos'"
+        ]
+    }
+}

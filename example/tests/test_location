@@ -1,0 +1,22 @@
+{
+    "description":
+    [
+        "Tests the handling of the location"
+    ],
+    "utterances":
+    [
+        "text 'For the forecast in {location}'",
+        "text 'For the current temperature in {location}'"
+    ],
+    "types":
+    {
+        "location":
+        [
+            "text 'west saint paul minnesota'",
+            "text 'duluth'",
+            "text 'phoenix'",
+            "text 'new ulm minnesnowta'"
+        ]
+    }
+}
+       

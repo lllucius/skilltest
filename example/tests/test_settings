@@ -1,0 +1,20 @@
+{
+    "description":
+    [
+        "Tests the handling of the setting getters"
+    ],
+    "utterances":
+    [
+        "text 'for the {setting} setting'"
+    ],
+    "types":
+    {
+        "setting":
+        [
+            "file '{skilldir}/type_setting'",
+            "text 'dewpoint'",
+            "text 'summary'"
+        ]
+    }
+}
+       

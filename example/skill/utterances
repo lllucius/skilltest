@@ -1,0 +1,95 @@
+MetricIntent for the {metric}
+MetricIntent for the {metric} in {location}
+MetricIntent for the {metric} in {location} on the {day}
+MetricIntent for the {metric} in {location} on {month} {day}
+MetricIntent for the {metric} in {location} on {when_abs}
+MetricIntent for the {metric} in {location} {month} {day}
+MetricIntent for the {metric} in {location} {when_any}
+MetricIntent for the {metric} for the {day}
+MetricIntent for the {metric} for the {day} in {location}
+MetricIntent for the {metric} for the {day} {zip_conn} {zipcode}
+MetricIntent for the {metric} for {month} {day}
+MetricIntent for the {metric} for {month} {day} in {location}
+MetricIntent for the {metric} for {month} {day} {zip_conn} {zipcode}
+MetricIntent for the {metric} for {when_abs}
+MetricIntent for the {metric} for {when_abs} in {location}
+MetricIntent for the {metric} for {when_abs} {zip_conn} {zipcode}
+MetricIntent for the {metric} on the {day}
+MetricIntent for the {metric} on the {day} in {location}
+MetricIntent for the {metric} on the {day} {zip_conn} {zipcode}
+MetricIntent for the {metric} on {month} {day}
+MetricIntent for the {metric} on {month} {day} in {location}
+MetricIntent for the {metric} on {month} {day} {zip_conn} {zipcode}
+MetricIntent for the {metric} on {when_abs}
+MetricIntent for the {metric} on {when_abs} in {location}
+MetricIntent for the {metric} on {when_abs} {zip_conn} {zipcode}
+MetricIntent for the {metric} {month} {day}
+MetricIntent for the {metric} {month} {day} in {location}
+MetricIntent for the {metric} {month} {day} {zip_conn} {zipcode}
+MetricIntent for the {metric} {when_any}
+MetricIntent for the {metric} {when_any} in {location}
+MetricIntent for the {metric} {when_any} {zip_conn} {zipcode}
+MetricIntent for the {metric} {zip_conn} {zipcode}
+MetricIntent for the {metric} {zip_conn} {zipcode} on the {day}
+MetricIntent for the {metric} {zip_conn} {zipcode} on {month} {day}
+MetricIntent for the {metric} {zip_conn} {zipcode} on {when_abs}
+MetricIntent for the {metric} {zip_conn} {zipcode} {month} {day}
+MetricIntent for the {metric} {zip_conn} {zipcode} {when_any}
+MetricIntent {leadin} {metric}
+MetricIntent {leadin} {metric} in {location}
+MetricIntent {leadin} {metric} in {location} on the {day}
+MetricIntent {leadin} {metric} in {location} on {month} {day}
+MetricIntent {leadin} {metric} in {location} on {when_abs}
+MetricIntent {leadin} {metric} in {location} {month} {day}
+MetricIntent {leadin} {metric} in {location} {when_any}
+MetricIntent {leadin} {metric} for the {day}
+MetricIntent {leadin} {metric} for the {day} in {location}
+MetricIntent {leadin} {metric} for the {day} {zip_conn} {zipcode}
+MetricIntent {leadin} {metric} for {month} {day}
+MetricIntent {leadin} {metric} for {month} {day} in {location}
+MetricIntent {leadin} {metric} for {month} {day} {zip_conn} {zipcode}
+MetricIntent {leadin} {metric} for {when_abs}
+MetricIntent {leadin} {metric} for {when_abs} in {location}
+MetricIntent {leadin} {metric} for {when_abs} {zip_conn} {zipcode}
+MetricIntent {leadin} {metric} on the {day}
+MetricIntent {leadin} {metric} on the {day} in {location}
+MetricIntent {leadin} {metric} on the {day} {zip_conn} {zipcode}
+MetricIntent {leadin} {metric} on {month} {day}
+MetricIntent {leadin} {metric} on {month} {day} in {location}
+MetricIntent {leadin} {metric} on {month} {day} {zip_conn} {zipcode}
+MetricIntent {leadin} {metric} on {when_abs}
+MetricIntent {leadin} {metric} on {when_abs} in {location}
+MetricIntent {leadin} {metric} on {when_abs} {zip_conn} {zipcode}
+MetricIntent {leadin} {metric} {month} {day}
+MetricIntent {leadin} {metric} {month} {day} in {location}
+MetricIntent {leadin} {metric} {month} {day} {zip_conn} {zipcode}
+MetricIntent {leadin} {metric} {when_any}
+MetricIntent {leadin} {metric} {when_any} in {location}
+MetricIntent {leadin} {metric} {when_any} {zip_conn} {zipcode}
+MetricIntent {leadin} {metric} {zip_conn} {zipcode}
+MetricIntent {leadin} {metric} {zip_conn} {zipcode} on the {day}
+MetricIntent {leadin} {metric} {zip_conn} {zipcode} on {month} {day}
+MetricIntent {leadin} {metric} {zip_conn} {zipcode} on {when_abs}
+MetricIntent {leadin} {metric} {zip_conn} {zipcode} {month} {day}
+MetricIntent {leadin} {metric} {zip_conn} {zipcode} {when_any}
+MetricIntent {when_pos} {metric}
+MetricIntent {when_pos} {metric} in {location}
+MetricIntent {when_pos} {metric} {zip_conn} {zipcode}
+MetricIntent what is {when_pos} {metric}
+MetricIntent what is {when_pos} {metric} in {location}
+MetricIntent what is {when_pos} {metric} {zip_conn} {zipcode}
+GetSettingIntent What are the settings
+GetSettingIntent What is the {setting} setting
+GetSettingIntent for the settings
+GetSettingIntent for the {setting} setting
+SetRateIntent Set rate to {percent} percent
+SetPitchIntent Set pitch to {percent} percent
+SetLocationIntent Set the location to zip code {zipcode}
+SetLocationIntent Set the location to {location}
+SetLocationIntent Set the location to {zipcode}
+GetCustomIntent For the custom forecast setting
+GetCustomIntent Get the custom forecast setting
+AddCustomIntent Add {metric} to the custom forecast setting
+RemCustomIntent Remove {metric} from the custom forecast setting
+RstCustomIntent to reset the custom forecast setting
+

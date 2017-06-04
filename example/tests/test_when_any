@@ -1,0 +1,17 @@
+{
+    "description":
+    [
+        "Make sure all of the absolute and relative day references are handled properly"
+    ],
+    "utterances":
+    [
+        "text 'If it will rain {when_any}'"
+    ],
+    "types":
+    {
+        "when_any":
+        [
+            "file '{skilldir}/type_when_any'"
+        ]
+    }
+}

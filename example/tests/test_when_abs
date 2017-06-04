@@ -1,0 +1,30 @@
+{
+    "description":
+    [
+        "Make sure all of the absolute day references are handled properly"
+    ],
+    "utterances":
+    [
+        "text 'For the temperature {when_abs}'",
+        "text 'For the temperature on {when_abs}'"
+    ],
+    "types":
+    {
+        "when_abs":
+        [
+            "file '{skilldir}/type_when_abs'"
+        ]
+    }
+    "config":
+    {
+        "bypass": true,
+        "outputdir": "/root/alexa/climacast/results",
+        "inputdir": "/root/alexa/climacast/results",
+        "testsdir": "/root/alexa/climacast/tests",
+        "ttsmethod": "espeak",
+        "regen": true,
+        "skilldir": "/root/alexa/climacast/skill",
+        "numtasks": 4
+    }
+}
+       

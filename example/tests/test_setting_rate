@@ -1,0 +1,29 @@
+{
+    "description":
+    [
+        "Tests the handling of the rate setting"
+    ],
+    "utterances":
+    [
+        "text 'Set rate to {percent} percent'"
+    ],
+    "types":
+    {
+        "percent":
+        [
+            "file '{testsdir}/type_percent'",
+            "text 50",
+            "text 150",
+            "text 151",
+            "text 49"
+        ]
+    },
+    "setup":
+    [
+        "text 'Set rate to 109 percent'"
+    ],
+    "cleanup":
+    [
+        "text 'Set rate to 109 percent'"
+    ]
+}

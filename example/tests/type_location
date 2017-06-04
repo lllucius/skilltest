@@ -1,0 +1,48 @@
+#
+# For testing only.  Not a real "types" file.
+#
+nome alaska
+naples florida
+phoenix arizona
+los angeles california
+manhattan new york
+auburn maine
+charleston west virginia
+new york city new york
+international falls minnesota
+baton rouge louisiana
+furnace creek california
+seattle washington
+san diego california
+pittsburgh pennsylvania
+rhodes alabama
+boston massachusetts
+arlington virginia
+atlanta georgia
+houston texas
+tulsa oklahoma
+kansas city kansas
+boise idaho
+rapid city south dakota
+lahaina hawaii
+las vegas nevada
+west saint paul minnesota
+
+# This one is missing the NWS county zoneId
+miami beach florida
+
+#
+# Valid cities without state name
+#
+duluth
+big lake
+austin
+
+#
+# City no located in default state
+#
+phoenix
+
+# Simulate a misspoken state name
+new ulm bad state name
+

@@ -1,0 +1,21 @@
+{
+    "description":
+    [
+        "Makes sure all of the metrics are recognized.",
+        "It will produce some bogus phrasing, but that's okay."
+    ],
+    "utterances":
+    [
+        "text 'For the {metric}'",
+        "text 'For the {metric} tomorrow'"
+    ],
+    "types":
+    {
+        "metric":
+        [
+            "file '{skilldir}/type_metric'",
+            "text 'bogus metric'"
+        ]
+    }
+}
+       

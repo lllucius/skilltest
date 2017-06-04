@@ -1,0 +1,19 @@
+{
+    "description":
+    [
+        "Tests the handling of the ordinal days"
+    ],
+    "utterances":
+    [
+        "text 'For the forecast on the {day}'"
+    ],
+    "types":
+    {
+        "day":
+        [
+            "file '{skilldir}/type_day'",
+            "text 'bogus day'"
+        ]
+    }
+}
+       

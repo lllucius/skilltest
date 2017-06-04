@@ -1,0 +1,24 @@
+{
+    "description":
+    [
+        "Tests the handling of the months."
+    ],
+    "utterances":
+    [
+        "text 'For the forecast on {month} {day}'"
+    ],
+    "types":
+    {
+        "month":
+        [
+            "file '{skilldir}/type_month'",
+            "text 'bogus month'"
+        ],
+        "day":
+        [
+            "text '1st'"
+        ]
+
+    }
+}
+       

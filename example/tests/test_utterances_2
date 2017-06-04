@@ -1,0 +1,61 @@
+{
+    "description":
+    [
+        "Tests the utterances that ask for things like: if it will rain..."
+    ],
+    "utterances":
+    [
+        "file --utterances --filter '.*{leadin} {metric}.*' '{skilldir}/utterances'"
+    ],
+    "types":
+    {
+        "leadin":
+        [
+            "file --filter '^(if|is|will)(?!.*be)' '{skilldir}/type_leadin'"
+        ],
+        "day":
+        [
+            "exec 'python {testsdir}/exec_month_day day 1 0 7'"
+        ],
+        "location":
+        [
+            "file --random 1 '{testsdir}/type_location_local'"
+        ],
+        "metric":
+        [
+            "text rain"
+        ],
+        "month":
+        [
+            "exec 'python {testsdir}/exec_month_day month 1 0 1'"
+        ],
+        "percent":
+        [
+            "file --random 1 '{testsdir}/type_percent'"
+        ],
+        "setting":
+        [
+            "file --random 1 '{skilldir}/type_setting'"
+        ],
+        "when_any":
+        [
+            "file --random 1 '{skilldir}/type_when_any'"
+        ],
+        "when_abs":
+        [
+            "file --random 1 '{skilldir}/type_when_abs'"
+        ],
+        "when_pos":
+        [
+            "file --random 1 '{skilldir}/type_when_pos'"
+        ],
+        "zip_conn":
+        [
+            "file --random 1 '{skilldir}/type_zip_conn'"
+        ],
+        "zipcode":
+        [
+            "file --random 1 '{testsdir}/type_zipcode'"
+        ]
+    }
+}

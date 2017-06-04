@@ -7,7 +7,6 @@ import base64
 import io
 import itertools
 import json
-import logging
 import multiprocessing
 import numpy as np
 import os
@@ -18,10 +17,7 @@ import samplerate
 import shlex
 import soundfile
 import sys
-import traceback
 import types
-import wave
-import zlib
 from bs4 import BeautifulSoup
 from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
@@ -77,6 +73,7 @@ def run_tts(filepfx, text):
                         16000,
                         format="WAV")
     except Exception as e:
+        import traceback
         print("Caught exception generating:")
         print(text)
         print()
@@ -128,11 +125,12 @@ class Tester(object):
         
         tests = []
         with open(os.path.join(OPTS.testsdir, testname)) as f:
+            print()
             print("#" * 80)
             print("Test:", testname)
             print("#" * 80)
-            print()
 
+            # Load the test
             test = json.load(f)
 
             # Merge any embedded config options
@@ -140,6 +138,7 @@ class Tester(object):
                 for var in test["config"]:
                     setattr(OPTS, var, test["config"][var])
 
+            print()
             print("=" * 80)
             print("Resolving utterances")
             print("=" * 80)
@@ -177,8 +176,7 @@ class Tester(object):
                         resolved += utterance[last:]
 
                         print("Utterance:", utterance)
-                        print("Resolved:", resolved)
-                        print()
+                        print("    \---->", resolved)
                         filepfx = resolved.replace(" ", "_").replace("'", "")
                         tests.append([testname, utterance, resolved, filepfx])
 
@@ -419,6 +417,7 @@ class AVS(object):
 
         headers["Authorization"] = "Bearer %s" % OPTS.access
 
+        # Call AVS
         url = "https://access-alexa-na.amazon.com/v1/avs/speechrecognizer/recognize"
         try:
             r = requests.post(url, headers=headers, files=files)
@@ -433,14 +432,10 @@ class AVS(object):
 
         # If the request fails, retry
         if r.status_code != 200:
-            print(r.status_code)
-            for header in r.headers:
-                print("HEADER:", header, ":", r.headers[header])
-            print(r.content)
-            print("WAV POS B4", wav.tell())
-            print(files)
-            print(wav.seek(0, 2))
-            print("WAV LEN", wav.tell())
+            #print(r.status_code)
+            #for header in r.headers:
+            #    print("HEADER:", header, ":", r.headers[header])
+            #print(r.content)
             wav.seek(0)
             r = requests.post(url, headers=headers, files=files)
 
@@ -451,6 +446,7 @@ class AVS(object):
         except:
             pass
 
+        # Request failed
         print(r.status_code)
         for header in r.headers:
             print(header, ":", r.headers[header])
@@ -498,17 +494,10 @@ class AVS(object):
 
         # Refrieve the login page
         r = self.sess.get("https://www.amazon.com/ap/oa", headers=headers, params=data)
-        #print("TEXT", r.content)
-        #print("R1")
-        #for header in r.request.headers:
-        #    print(header, r.request.headers[header])
-        #for cookie in self.sess.cookies:
-        #    print(cookie)
 
         # Extract the form fields
         form = BeautifulSoup(r.text, "html.parser").find("form", {"name": "acknowledgement-form"})
         if form is not None:
-            #print("ACK")
             data = {}
             for field in form.find_all("input"):
                 if "name" in field.attrs and "value" in field.attrs:
@@ -524,17 +513,10 @@ class AVS(object):
             r = self.sess.get(form.attrs["action"], params=data, headers=headers, allow_redirects=False)
             r, code = redirect_to(r)
 
-        #print("CODE1", code)
-        #for header in r.request.headers:
-        #    print(header, r.request.headers[header])
-        #for cookie in self.sess.cookies:
-        #    print(cookie)
-
         if code is None:
             # Extract the form fields
             form = BeautifulSoup(r.text, "html.parser").find("form", {"name": "signIn"})
             if form is not None:
-                #print("SIGNIN")
                 data = {}
                 for field in form.find_all("input"):
                     if "name" in field.attrs and "value" in field.attrs:
@@ -552,16 +534,9 @@ class AVS(object):
                 r = self.sess.post(form.attrs["action"], data=data, headers=headers, allow_redirects=False)
                 r, code = redirect_to(r)
                 
-        #print("CODE2", code)
-        #for header in r.request.headers:
-        #    print(header, r.request.headers[header])
-        #for cookie in self.sess.cookies:
-        #    print(cookie)
-
         if code is None:
             form = BeautifulSoup(r.text, "html.parser").find("form", {"name": "consent-form"})
             if form is not None:
-                #print("CONSENT")
                 data = {}
                 for field in form.find_all("input"):
                     if "name" in field.attrs and "value" in field.attrs:
@@ -577,55 +552,39 @@ class AVS(object):
                 r = self.sess.get(form.attrs["action"], params=data, headers=headers, allow_redirects=False)
                 r, code = redirect_to(r)
 
-        #print("CODE3", code)
-        #for header in r.request.headers:
-        #    print(header, r.request.headers[header])
-        #for cookie in self.sess.cookies:
-        #    print(cookie)
-
         data = \
         {
-            "client_id": OPTS.clientid,
-            "client_secret": OPTS.secret,
-            "code": code,
             "grant_type": "authorization_code",
-            "redirect_uri": OPTS.redirect
+            "code": code,
+            "redirect_uri": OPTS.redirect,
+            "client_id": OPTS.clientid,
+            "client_secret": OPTS.secret
         }
 
-        #print("DATA4", json.dumps(data, indent=4))
+        # Retreive the access code
         r = self.sess.post("https://api.amazon.com/auth/o2/token", headers=headers, data=data)
-
-        #print("FINAL", code)
-        #for header in r.request.headers:
-        #    print(header, r.request.headers[header])
-        #for cookie in self.sess.cookies:
-        #    print(cookie)
-
         data = r.json()
         if "access_token" in data and "refresh_token" in data:
             OPTS.access = data["access_token"]
             OPTS.refresh = data["refresh_token"]
-#            with open(OPTS.config, "wt") as c:
-#                json.dump(OPTS, c, indent=4)
 
     def refresh(self):
         # make a copy of the headers
         headers = deepcopy(HEADERS)
 
         data = \
-            {
-                "client_id": OPTS.clientid,
-                "client_secret": OPTS.secret,
-                "refresh_token": OPTS.refresh,
-                "grant_type": OPTS.refresh_token
-            }
+        {
+            "grant_type": "refresh_token",
+            "refresh_token": OPTS.refresh,
+            "client_id": OPTS.clientid,
+            "client_secret": OPTS.secret
+        }
 
+        # Retrieve a new refresh token
         r = self.sess.post("https://api.amazon.com/auth/o2/token", headers=headers, data=data)
         data = r.json()
         OPTS.access = data["access_token"]
         OPTS.refresh = data["refresh_token"]
-#        with open(OPTS.config, "w") as c:
-#            json.dump(OPTS, c, indent=4)
 
         return OPTS.access
 

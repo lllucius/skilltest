@@ -44,7 +44,7 @@ setup(
                       "soundfile"],
     entry_points={
         "console_scripts": [
-            "skilltest=skilltest",
+            "skilltest=skilltest:main",
         ],
     },
 )

@@ -629,71 +629,74 @@ class AVS(object):
 
         return OPTS.access
 
-multiprocessing.log_to_stderr()
+def main():
+    global OPTS
+    multiprocessing.log_to_stderr()
 
-parser = argparse.ArgumentParser(description='Alexa Skill Tester')
-parser.add_argument("file", nargs="*",
-                    help="name of test file(s)")
-parser.add_argument("-b", "--bypass", default=False, action="store_const", const=True,
-                    help="bypass calling AVS to process utterance")
-parser.add_argument("-c", "--config", type=str, default="./.config",
-                    help="path to configuration file")
-parser.add_argument("-i", "--inputdir", type=str,
-                    help="path to voice input directory")
-parser.add_argument("-n", "--numtasks", type=int,
-                    help="number of concurrent requests to run")
-parser.add_argument("-o", "--outputdir", type=str,
-                    help="path to voice output directory")
-parser.add_argument("-r", "--regen", default=False, action="store_const", const=True,
-                    help="regenerate voice input files")
-parser.add_argument("-s", "--skilldir", type=str,
-                    help="path to skill directory")
-parser.add_argument("-t", "--testsdir", type=str,
-                    help="path to tests directory")
-parser.add_argument("-v", "--voice", choices=["espeak", "osx", "sapi"],
-                    help="TTS synthesizer to use")
-parser.add_argument("-w", "--writeconfig",
-                    help="path for generated configuration file")
+    parser = argparse.ArgumentParser(description='Alexa Skill Tester')
+    parser.add_argument("file", nargs="+",
+                        help="name of test file(s)")
+    parser.add_argument("-b", "--bypass", default=False, action="store_const", const=True,
+                        help="bypass calling AVS to process utterance")
+    parser.add_argument("-c", "--config", type=str, default="./.config",
+                        help="path to configuration file")
+    parser.add_argument("-i", "--inputdir", type=str,
+                        help="path to voice input directory")
+    parser.add_argument("-n", "--numtasks", type=int,
+                        help="number of concurrent requests to run")
+    parser.add_argument("-o", "--outputdir", type=str,
+                        help="path to voice output directory")
+    parser.add_argument("-r", "--regen", default=False, action="store_const", const=True,
+                        help="regenerate voice input files")
+    parser.add_argument("-s", "--skilldir", type=str,
+                        help="path to skill directory")
+    parser.add_argument("-t", "--testsdir", type=str,
+                        help="path to tests directory")
+    parser.add_argument("-v", "--voice", choices=["espeak", "osx", "sapi"],
+                        help="TTS synthesizer to use")
+    parser.add_argument("-w", "--writeconfig",
+                        help="path for generated configuration file")
 
-args = parser.parse_args()
+    args = parser.parse_args()
 
-if args.writeconfig is not None:
+    if args.writeconfig is not None:
+        try:
+            with open(args.writeconfig, "w") as c:
+                json.dump(CFG, c, indent=4)
+                print("sample configuration written to %s" % args.writeconfig)
+        except:
+            print("Couldn't generate config file:", args.writeconfig)
+        quit()
+
     try:
-        with open(args.writeconfig, "w") as c:
-            json.dump(CFG, c, indent=4)
-            print("sample configuration written to %s" % args.writeconfig)
+        with open(args.config, "rt") as c:
+            BaseOptions = type("BaseOptions", (), json.load(c))
     except:
-        print("Couldn't generate config file:", args.writeconfig)
-    quit()
+        print("Couldn't load config file %s" % args.config)
+        quit()
 
-try:
-    with open(args.config, "rt") as c:
-        BaseOptions = type("BaseOptions", (), json.load(c))
-except:
-    print("Couldn't load config file %s" % args.config)
-    quit()
+    # Create an instance of our base options
+    OPTS = BaseOptions()
 
-# Create an instance of our base options
-OPTS = BaseOptions()
+    # Merge args into the options
+    for arg in vars(args):
+        if getattr(args,arg):
+            setattr(OPTS, arg, getattr(args, arg))
 
-# Merge args into the options
-for arg in vars(args):
-    if getattr(args,arg):
-        setattr(OPTS, arg, getattr(args, arg))
+    # Need comtypes if we're using SAPI under native Windows (not WSL)
+    if OPTS.ttsmethod == "sapi" and PLAT == "win32":
+        from comtypes.client import CreateObject
+        from comtypes.gen import SpeechLib
 
-# Need comtypes if we're using SAPI under native Windows (not WSL)
-if OPTS.ttsmethod == "sapi" and PLAT == "win32":
-    from comtypes.client import CreateObject
-    from comtypes.gen import SpeechLib
+    tester = Tester()
 
-tester = Tester()
-
-if len(OPTS.file) > 0:
-    for name in OPTS.file:
-        tester.process(name)
-else:
-    for name in os.listdir(OPTS.testsdir):
-        if name.startswith("test_"):
+    if len(OPTS.file) > 0:
+        for name in OPTS.file:
             tester.process(name)
+    else:
+        for name in os.listdir(OPTS.testsdir):
+            if name.startswith("test_"):
+                tester.process(name)
 
-
+if __name__ == "__main__":
+    main()

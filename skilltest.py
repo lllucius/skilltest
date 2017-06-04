@@ -139,12 +139,22 @@ class Tester(object):
         sp.set_defaults(func=Tester.handle_text)
 
     def process(self, testname):
-        # Preserve options
         global OPTS
+
+        # Locate the test file
+        if os.path.exists(testname):
+            path = testname
+        else:
+            path = os.path.join(OPTS.testsdir, testname)
+            if not os.path.exists(path):
+                print("Unable to locate test:", testname)
+                return
+ 
+        # Preserve options
         savedopts = deepcopy(OPTS)
-        
+
         tests = []
-        with open(os.path.join(OPTS.testsdir, testname)) as f:
+        with open(path) as f:
             print()
             print("#" * 80)
             print("Test:", testname)
@@ -677,7 +687,7 @@ def main():
     else:
         for name in os.listdir(OPTS.testsdir):
             if name.startswith("test_"):
-                tester.process(name)
+                tester.process(os.path.join(OPTS.testsdir, name))
 
 if __name__ == "__main__":
     main()

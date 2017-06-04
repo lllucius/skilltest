@@ -100,6 +100,7 @@ class Options(object):
         self.merge_dict(CFG)
 
     def load_config(self, path):
+        path = os.path.join(os.path.expanduser(path), ".skilltest")
         if os.path.exists(path):
             with open(path, "rt") as c:
                 self.merge_dict(json.load(c))
@@ -655,10 +656,10 @@ def main():
     OPTS = Options()
 
     # Merge in any global options
-    OPTS.load_config(os.path.expanduser("~/.skilltest"))
+    OPTS.load_config("~")
 
     # Merge in any local options
-    OPTS.load_config("./.skilltest")
+    OPTS.load_config(".")
 
     # A command line config file overrides global and local configs
     if args.config:

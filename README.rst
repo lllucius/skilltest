@@ -328,18 +328,30 @@ Running *skilltest*
 | Where:
 
   -h, --help  show this help message and exit
-  -C CONFIG, --config CONFIG  path to configuration file
-  -I INPUTDIR, --inputdir INPUTDIR  path to voice input directory
-  -O OUTPUTDIR, --outputdir OUTPUTDIR  path to voice output directory
-  -S SKILLDIR, --skilldir SKILLDIR  path to skill directory
-  -T TESTSDIR, --testsdir TESTSDIR  path to tests directory
-  -a AVSTASKS, --avstasks AVSTASKS  number of concurrent AVS requests
-  -b, --bypass  bypass calling AVS to process utterance
-  -i INVOCATION, --invocation INVOCATION  invocation name of skill
-  -r, --regen  regenerate voice input files
-  -s SYNTH, --synth SYNTH  TTS synthesizer to use (espeak, osx, sapi)
-  -t TTSTASKS, --ttstasks TTSTASKS  number of concurrent TTS conversions
-  -w WRITECONFIG, --writeconfig WRITECONFIG  path for generated configuration file
+  -C CONFIG  path to the configuration file
+  --config CONFIG  ...
+  -I INPUTDIR  path to voice input directory
+  --inputdir INPUTDIR  ...
+  -O OUTPUTDIR  path to voice output directory
+  --outputdir OUTPUTDIR  ...
+  -S SKILLDIR  path to skill directory
+  --skilldir SKILLDIR  ...
+  -T TESTSDIR  path to tests directory
+   --testsdir TESTSDIR  ...
+  -a AVSTASKS  number of concurrent AVS requests
+  --avstasks AVSTASKS  ...
+  -b  bypass calling AVS to process utterance
+  --bypass  ...
+  -i INVOCATION  invocation name of skill
+  --invocation INVOCATION  ...
+  -r  regenerate voice input files
+  --regen  ...
+  -s SYNTH  TTS synthesizer to use (espeak, osx, sapi)
+  --synth SYNTH  ...
+  -t TTSTASKS  number of concurrent TTS conversions
+  --ttstasks TTSTASKS  ...
+  -w WRITECONFIG  path for generated configuration file
+  --writeconfig WRITECONFIG  ...
 
 | With the exception of the following, most of the arguments simply override the configuration file settings.  So refer to `The configuration file <The configuration file>`_ section for details.
 |

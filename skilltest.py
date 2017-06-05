@@ -46,7 +46,8 @@ CFG = \
     "testsdir": "./tests",
     "bypass": False,
     "regen": False,
-    "numtasks": 1,
+    "numavs": 1,
+    "numtts": 1,
     "ttsmethod": "sapi" if PLAT == "win32" else "osx" if PLAT == "darwin" else "espeak",
     "invocation":  "your skill's invocation name",
     "email": "your AVS email address",
@@ -229,12 +230,12 @@ class Tester(object):
             print("=" * 80)
             print()
 
-            with ProcessPoolExecutor(max_workers=OPTS.numtasks) as executor:
+            with ProcessPoolExecutor(max_workers=OPTS.numtts) as executor:
                 for testname, utterance, resolved, filepfx in tests:
                     name = os.path.join(OPTS.inputdir, filepfx + ".wav")
                     if not os.path.exists(name) or OPTS.regen:
                         print("Generating:", resolved)
-                        if OPTS.numtasks == 1:
+                        if OPTS.numtts == 1:
                             run_tts(filepfx, resolved)
                         else:
                             executor.submit(run_tts, filepfx, resolved)
@@ -248,10 +249,10 @@ class Tester(object):
             print("=" * 80)
             print()
 
-            with ProcessPoolExecutor(max_workers=OPTS.numtasks) as executor:
+            with ProcessPoolExecutor(max_workers=OPTS.numavs) as executor:
                 for testname, utterance, resolved, filepfx in tests:
                     print("Recognizing:", resolved)
-                    if OPTS.numtasks == 1:
+                    if OPTS.numavs == 1:
                         run_avs(filepfx)
                     else:
                         executor.submit(run_avs, filepfx)
@@ -638,14 +639,16 @@ def main():
                         help="path to skill directory")
     parser.add_argument("-T", "--testsdir", type=str,
                         help="path to tests directory")
+    parser.add_argument("-a", "--numavs", type=int,
+                        help="number of concurrent AVS requests")
     parser.add_argument("-b", "--bypass", action="store_const", const=True,
                         help="bypass calling AVS to process utterance")
     parser.add_argument("-i", "--invocation", type=str,
                         help="invocation name of skill")
-    parser.add_argument("-n", "--numtasks", type=int,
-                        help="number of concurrent requests to run")
     parser.add_argument("-r", "--regen", action="store_const", const=True,
                         help="regenerate voice input files")
+    parser.add_argument("-t", "--numtts", type=int,
+                        help="number of concurrent TTS conversions")
     parser.add_argument("-v", "--voice", choices=["espeak", "osx", "sapi"],
                         help="TTS synthesizer to use")
     parser.add_argument("-w", "--writeconfig",

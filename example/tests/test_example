@@ -1,0 +1,38 @@
+{
+    "description":
+    [
+        "Tests the utterances that ask for things like: if it will be raining..."
+    ],
+    "utterances":
+    [
+        "file --utterances --filter '.*{leadin}.*' '{skilldir}/utterances'",
+        "text 'additional utterances can be added'",
+        "file --utterances 'as/well/as/more/files'"
+    ],
+    "types":
+    {
+        "leadin":
+        [
+            "file --filter '^(if|is|will).*be.*' '{skilldir}/type_leadin'",
+            "text 'additional slot values may be specified as well'"
+        ],
+        "day":
+        [
+            "exec 'python {testsdir}/exec_month_day day 1 0 7'",
+            "file --random 1 '{skilldir}/type_day'"
+        ]
+    },
+    "setup":
+    [
+        "text 'Set rate to 109 percent'"
+    ],
+    "cleanup":
+    [
+        "text 'Set rate to 109 percent'"
+    ],
+    "config":
+    {
+        "ttsmethod": "espeak",
+        "regen": true
+    }
+}

@@ -343,7 +343,7 @@ Running *skilltest*
     -t, --ttstasks        number of concurrent TTS conversions
     -w, --writeconfig     path for generated configuration file
 
-| With the exception of the following, most of the arguments simply override the configuration file settings.  So refer to `The configuration file <The configuration file>`_ section for details.
+| With the exception of the following, most of the arguments simply override the configuration file settings.  So refer to `The configuration file <The configuration file_>`_ section for details.
 |
 | The **--config** argument allows you to specify the path of a configuration file that will be used instead of the **global** and **local** configurations.  The settings within this file will completely override all others except for any other command arguments and configuration settings specified within the test definitions.
 |
@@ -351,7 +351,7 @@ Running *skilltest*
 |
 | If you do not specify the **file** argument, *skilltest* will look in the **testsdir** directory for all files beginning with **test_** and run the tests in each file it locates.
 |
-| However, if you do specify one or more **file** arguments, then *skilltest* will look for a files with that names (you may include relative or absolute paths).  If it doesn't find one, it will look in the **testsdir** for the file.
+| However, if you do specify one or more **file** arguments, then *skilltest* will look files with those names (you may include relative or absolute paths).  If it doesn't find one, it will look in the **testsdir** instead.
 
 Example executions
 ------------------

@@ -317,19 +317,16 @@ Running *skilltest*
 
 | The syntax of the *skilltest* command:
 
+::
 
-usage: skilltest.py [-h] [-C CONFIG] [-I INPUTDIR] [-O OUTPUTDIR]
+  skilltest.py [-h] [-C CONFIG] [-I INPUTDIR] [-O OUTPUTDIR]
                     [-S SKILLDIR] [-T TESTSDIR] [-a AVSTASKS] [-b]
-                    [-i INVOCATION] [-r] [-t TTSTASKS] [-v {espeak,osx,sapi}]
+                    [-i INVOCATION] [-r] [-s {espeak,osx,sapi}] [-t TTSTASKS]
                     [-w WRITECONFIG]
                     [file [file ...]]
 
-Alexa Skill Tester
+| Where:
 
-positional arguments:
-  file                  name of test file(s)
-
-optional arguments:
   -h, --help  show this help message and exit
   -C CONFIG, --config CONFIG  path to configuration file
   -I INPUTDIR, --inputdir INPUTDIR  path to voice input directory

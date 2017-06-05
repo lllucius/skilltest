@@ -319,29 +319,29 @@ Running *skilltest*
 
 ::
 
-skilltest [-h] [-C CONFIG] [-I INPUTDIR] [-O OUTPUTDIR]
-               [-S SKILLDIR] [-T TESTSDIR] [-a AVSTASKS] [-b]
-               [-i INVOCATION] [-r] [-s {espeak,osx,sapi}] [-t TTSTASKS]
-               [-w WRITECONFIG]
-               [file [file ...]]
+  skilltest [-h] [-C CONFIG] [-I INPUTDIR] [-O OUTPUTDIR]
+                 [-S SKILLDIR] [-T TESTSDIR] [-a AVSTASKS] [-b]
+                 [-i INVOCATION] [-r] [-s {espeak,osx,sapi}] [-t TTSTASKS]
+                 [-w WRITECONFIG]
+                 [file [file ...]]
 
-**positional arguments**:
-  file                  name of test file(s)
+  **positional arguments**:
+    file                  name of test file(s)
 
-**optional arguments**:
-  -h, --help            show this help message and exit
-  -C, --config          path to configuration file
-  -I, --inputdir        path to voice input directory
-  -O, --outputdir       path to voice output directory
-  -S, --skilldir        path to skill directory
-  -T, --testsdir        path to tests directory
-  -a, --avstasks        number of concurrent AVS requests
-  -b, --bypass          bypass calling AVS to process utterance
-  -i, --invocation      invocation name of skill
-  -r, --regen           regenerate voice input files
-  -s, --synth           TTS synthesizer to use (espeak, osx, sapi)
-  -t, --ttstasks        number of concurrent TTS conversions
-  -w, --writeconfig     path for generated configuration file
+  **optional arguments**:
+    -h, --help            show this help message and exit
+    -C, --config          path to configuration file
+    -I, --inputdir        path to voice input directory
+    -O, --outputdir       path to voice output directory
+    -S, --skilldir        path to skill directory
+    -T, --testsdir        path to tests directory
+    -a, --avstasks        number of concurrent AVS requests
+    -b, --bypass          bypass calling AVS to process utterance
+    -i, --invocation      invocation name of skill
+    -r, --regen           regenerate voice input files
+    -s, --synth           TTS synthesizer to use (espeak, osx, sapi)
+    -t, --ttstasks        number of concurrent TTS conversions
+    -w, --writeconfig     path for generated configuration file
 
 | With the exception of the following, most of the arguments simply override the configuration file settings.  So refer to `The configuration file <The configuration file>`_ section for details.
 |

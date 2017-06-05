@@ -17,8 +17,7 @@
     },
     "config":
     {
-        "ttsmethod": "espeak",
+        "synth": "espeak",
         "regen": true
     }
 }
-       

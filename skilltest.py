@@ -46,9 +46,9 @@ CFG = \
     "testsdir": "./tests",
     "bypass": False,
     "regen": False,
-    "numavs": 1,
-    "numtts": 1,
-    "ttsmethod": "sapi" if PLAT == "win32" else "osx" if PLAT == "darwin" else "espeak",
+    "avstasks": 1,
+    "ttstasks": 1,
+    "synth": "sapi" if PLAT == "win32" else "osx" if PLAT == "darwin" else "espeak",
     "invocation":  "your skill's invocation name",
     "email": "your AVS email address",
     "password": "your AVS password",
@@ -230,12 +230,12 @@ class Tester(object):
             print("=" * 80)
             print()
 
-            with ProcessPoolExecutor(max_workers=OPTS.numtts) as executor:
+            with ProcessPoolExecutor(max_workers=OPTS.ttstasks) as executor:
                 for testname, utterance, resolved, filepfx in tests:
                     name = os.path.join(OPTS.inputdir, filepfx + ".wav")
                     if not os.path.exists(name) or OPTS.regen:
                         print("Generating:", resolved)
-                        if OPTS.numtts == 1:
+                        if OPTS.ttstasks == 1:
                             run_tts(filepfx, resolved)
                         else:
                             executor.submit(run_tts, filepfx, resolved)
@@ -249,10 +249,10 @@ class Tester(object):
             print("=" * 80)
             print()
 
-            with ProcessPoolExecutor(max_workers=OPTS.numavs) as executor:
+            with ProcessPoolExecutor(max_workers=OPTS.avstasks) as executor:
                 for testname, utterance, resolved, filepfx in tests:
                     print("Recognizing:", resolved)
-                    if OPTS.numavs == 1:
+                    if OPTS.avstasks == 1:
                         run_avs(filepfx)
                     else:
                         executor.submit(run_avs, filepfx)
@@ -327,11 +327,11 @@ class TTS(object):
         pass
 
     def convert(self, text):
-        if OPTS.ttsmethod == "espeak":
+        if OPTS.synth == "espeak":
             raw = self.espeakTTS(text)
-        elif OPTS.ttsmethod == "osx":
+        elif OPTS.synth == "osx":
             raw = self.osxTTS(text)
-        elif OPTS.ttsmethod == "sapi":
+        elif OPTS.synth == "sapi":
             raw = self.sapiTTS(text)
         return raw
 
@@ -639,7 +639,7 @@ def main():
                         help="path to skill directory")
     parser.add_argument("-T", "--testsdir", type=str,
                         help="path to tests directory")
-    parser.add_argument("-a", "--numavs", type=int,
+    parser.add_argument("-a", "--avstasks", type=int,
                         help="number of concurrent AVS requests")
     parser.add_argument("-b", "--bypass", action="store_const", const=True,
                         help="bypass calling AVS to process utterance")
@@ -647,10 +647,10 @@ def main():
                         help="invocation name of skill")
     parser.add_argument("-r", "--regen", action="store_const", const=True,
                         help="regenerate voice input files")
-    parser.add_argument("-t", "--numtts", type=int,
-                        help="number of concurrent TTS conversions")
-    parser.add_argument("-v", "--voice", choices=["espeak", "osx", "sapi"],
+    parser.add_argument("-s", "--synth", choices=["espeak", "osx", "sapi"],
                         help="TTS synthesizer to use")
+    parser.add_argument("-t", "--ttstasks", type=int,
+                        help="number of concurrent TTS conversions")
     parser.add_argument("-w", "--writeconfig",
                         help="path for generated configuration file")
 

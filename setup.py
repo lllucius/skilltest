@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 
 # Always prefer setuptools over distutils
 from setuptools import setup, find_packages

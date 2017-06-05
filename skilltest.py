@@ -17,6 +17,7 @@ import samplerate
 import shlex
 import soundfile
 import sys
+import traceback
 import types
 from bs4 import BeautifulSoup
 from concurrent.futures import ProcessPoolExecutor
@@ -74,7 +75,6 @@ def run_tts(filepfx, text):
                         16000,
                         format="WAV")
     except Exception as e:
-        import traceback
         print("Caught exception generating:")
         print(text)
         print()
@@ -617,8 +617,9 @@ class AVS(object):
         # Retrieve a new refresh token
         r = self.sess.post("https://api.amazon.com/auth/o2/token", headers=headers, data=data)
         data = r.json()
-        OPTS.access = data["access_token"]
-        OPTS.refresh = data["refresh_token"]
+        if "access_token" in data and "refresh_token" in data:
+            OPTS.access = data["access_token"]
+            OPTS.refresh = data["refresh_token"]
 
         return OPTS.access
 
@@ -629,7 +630,7 @@ def main():
     parser = argparse.ArgumentParser(description='Alexa Skill Tester')
     parser.add_argument("file", nargs="*",
                         help="name of test file(s)")
-    parser.add_argument("-C", "--config", type=file,
+    parser.add_argument("-C", "--config", type=argparse.FileType('rt'),
                         help="path to configuration file")
     parser.add_argument("-I", "--inputdir", type=str,
                         help="path to voice input directory")

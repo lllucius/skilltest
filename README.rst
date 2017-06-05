@@ -46,7 +46,9 @@ Installing *skilltest*
 |
 | If you checked out the source from GitHub, just change to the repo directory.
 |
-| Then simply run setup.py:
+| Installing *skilltest* isn't absolutely necessary since it will happily run from this directory.  And since it's only a single module, it's easy to just throw it where ever you like, just ensure that all of the requirements listed above are installed.
+|
+| But, if you prefer to install, then simply run setup.py:
 |
 
  | ``python setup.py install``
@@ -136,7 +138,7 @@ Setting up *skilltest*
 The configuration file
 ^^^^^^^^^^^^^^^^^^^^^^
 
-| The configuration of *skilltest* is controlled via simple JSON files.  Both global and local files are supported and some configuration items may be overridden via the command line or via "config" dictionaries in the test definitions.
+| The configuration of *skilltest* is controlled via simple JSON files.  Both **global** and **local** files are supported and some configuration items may be overridden via the command line or via the **config** dictionary within the test definition.
 
 | When looking for configuration files, *skilltest* looks for the **global** configuration file in your **home** directory.  As stated in the Python documentation:
 |
@@ -145,10 +147,12 @@ The configuration file
     |
     | ''On Windows, HOME and USERPROFILE will be used if set, otherwise a combination of HOMEPATH and HOMEDRIVE will be used. An initial ~user is handled by stripping the last directory component from the created user path derived above.''
 
-| You might want to define all of the settings that would be shared when testing your different skills in the **global** configuration file and skill specific settings like the skill's invocation name, skill directory and tests directory would go into the **local** configuration file that might reside in the directory where you test your skill.
+| The **local** configuration file is looked for in the active directory when *skilltest* is executed.  This allows you to keep skill specific settings alongside your other skill files.
+
+| For example, you might want to define all of the settings that would be shared when testing your different skills in the **global** configuration file and skill specific settings like the skill's invocation name, skill directory and tests directory would go into the **local** configuration file that might reside in the directory where you test your skill.
 |
 
-.. Warning:: Because of the sensitive nature of the configuration file that contains the **password**, **clientid**, and **secret**, it is **VERY** important you protect this file from unauthorized eyes.  As there are multiple levels of configuration files available, you might store these sensitive values at the global level and the rest of the settings within a local *skill* configuration file.
+ .. Warning:: Because of the sensitive nature of the configuration file that contains the **password**, **clientid**, and **secret**, it is **VERY** important you protect this file from unauthorized eyes.  As there are multiple levels of configuration files available, you might store these sensitive values at the global level and the rest of the settings within a local *skill* configuration file.
 
 | Here's the sample configuration file from the **example** subdirectory:
 
@@ -161,8 +165,8 @@ The configuration file
       "testsdir": "./example/tests",
       "bypass": false,
       "regen": false,
-      "numavs": 1,
-      "numtts": 1,
+      "avstasks": 1,
+      "ttstasks": 1,
       "ttsmethod": "espeak",
       "invocation": "your skill's invocation name",
       "email": "your AVS email address",
@@ -187,9 +191,9 @@ The configuration file
 
  :regen: **true** or **false** Boolean when set to **true** will force regeneration of the AVS voice input files.  Otherwise, existing files using the same utterance will be reused.
 
- :numavs: the number of AVS tasks that will be run concurrently.  While Amazon can probably handle anything you throw at it, you might want to be a good netizen and not set this too high.
+ :avstasks: the number of AVS tasks that will be run concurrently.  While Amazon can probably handle anything you throw at it, you might want to be a good netizen and not set this too high.
 
- :numtts: the number of TTS tasks that will be run concurrently.  Totally depends on your machine, but setting to at least the number of processors core you have will greatly speed up TTS conversions.
+ :ttstasks: the number of TTS tasks that will be run concurrently.  Totally depends on your machine, but setting to at least the number of processors core you have will greatly speed up TTS conversions.
 
  :ttsmethod: this tells *skilltest* which TTS method to use.  The valid values are **espeak**, **osx**, and **sapi**.  See `Speech synthesizer setup <Speech synthesizer setup_>`_ for a discussion of the different methods.
 
@@ -276,21 +280,24 @@ The test definition file
 :config: (dict) You may override any of the *skilltest* configuration settings when a test begins.  The example shown, changes the synthesizer and forces regeneration, presumably because this particular test works better with a different voice (for example).
 
 |
-| Each **list** item, may utilize any combination of different methods for supplying the test data.  You may specify as many as you need, just remember that for every item listed, a new test will be sent to AVS and you can quickly get into the hundreds of tests.  See the **bypass** configuration and command line options for reviewing the utterances before actually testing.
+| Each **list** item, may utilize any combination of different methods for supplying the test data.  You may specify as many as you need, just remember that for every item listed, each value provided by the method will cause an additional test to be sent to AVS and you can quickly get into the hundreds of tests.  See the **bypass** configuration and command line options for reviewing the utterances before actually testing.
+|
+| You may use the **{skilldir}** and **{testsdir}** variables in the items to refer to either of those paths.
 |
 | The methods utilize command line parsing for their arguments, so arguments with spaces should be quoted.
 |
 | The following arguments are optional and can be used with all of the methods:
 |
 
- --filter  Specifies a regular expression that will be used to filter the provided values.  Mostly useful when used with the **file** and **exec** methods.
- --random  Specifies the number of values to randomly select from the list of provided values.  Mostly useful when used with the **file** and **exec** methods.
+ --filter  Specifies a regular expression that will be used to filter the provided values.  Mostly useful with the **file** and **exec** methods.
+ --random  Specifies the number of values to randomly select from the list of provided values.  Mostly useful with the **file** and **exec** methods.
  --digits  A switch that tells *skilltest* to look for values that contain all digits and separate the digits with a space when substituting.  This is useful for things like zip codes where you'd typically say the individual digits.  For example, the number "55118" would be substituted as "5 5 1 1 8".
 
 |
-| Any empty ("") values or values beginning with a pound sign (#) will be dropped and will not be considered for the **random** and **filter** arguments.
+| Any empty ("") values or values beginning with a pound sign (#) will be dropped and will not be considered for the **random** and **filter** arguments.  This allows you to put comments into your pseudo-type files in case you want to describe why one particular entry was included.
+
 |
-| The method are:
+| The methods are:
 |
 
 :text:  [--filter FILTER] [--random RANDOM] [--digits] text
@@ -299,10 +306,336 @@ The test definition file
 
 :file:  [--filter FILTER] [--random RANDOM] [--digits] [--utterances] path
 
-    | specifies the path to a file from which values should be read.  The **utterances** switch, if used, tells *skilltest* that the file is a list of utterances which will cause it to remove the intent name at the beginning each line.
+    | specifies the path to a file from which values should be read.  The **utterances** switch, if used, tells *skilltest* that the file contains a list of utterances and that it should ignore the intent name at the beginning each line.
 
 :exec: [--filter FILTER] [--random RANDOM] [--digits] cmd
 
     | specifies a command to run.  All lines sent to stdout by the command will be used as values.
 
+Running *skilltest*
+-------------------
+
+| The syntax of the *skilltest* command:
+
+
+usage: skilltest.py [-h] [-C CONFIG] [-I INPUTDIR] [-O OUTPUTDIR]
+                    [-S SKILLDIR] [-T TESTSDIR] [-a AVSTASKS] [-b]
+                    [-i INVOCATION] [-r] [-t TTSTASKS] [-v {espeak,osx,sapi}]
+                    [-w WRITECONFIG]
+                    [file [file ...]]
+
+Alexa Skill Tester
+
+positional arguments:
+  file                  name of test file(s)
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -C CONFIG, --config CONFIG  path to configuration file
+  -I INPUTDIR, --inputdir INPUTDIR  path to voice input directory
+  -O OUTPUTDIR, --outputdir OUTPUTDIR  path to voice output directory
+  -S SKILLDIR, --skilldir SKILLDIR  path to skill directory
+  -T TESTSDIR, --testsdir TESTSDIR  path to tests directory
+  -a AVSTASKS, --avstasks AVSTASKS  number of concurrent AVS requests
+  -b, --bypass  bypass calling AVS to process utterance
+  -i INVOCATION, --invocation INVOCATION  invocation name of skill
+  -r, --regen  regenerate voice input files
+  -s SYNTH, --synth SYNTH  TTS synthesizer to use (espeak, osx, sapi)
+  -t TTSTASKS, --ttstasks TTSTASKS  number of concurrent TTS conversions
+  -w WRITECONFIG, --writeconfig WRITECONFIG  path for generated configuration file
+
+| With the exception of the following, most of the arguments simply override the configuration file settings.  So refer to `The configuration file <The configuration file>`_ section for details.
+|
+| The **--config** argument allows you to specify the path of a configuration file that will be used instead of the **global** and **local** configurations.  The settings within this file will completely override all others except for any other command arguments and configuration settings specified within the test definitions.
+|
+| The **--writeconfig** argument writes out a skeleton configuration file to the specified path.
+|
+| If you do not specify the **file** argument, *skilltest* will look in the **testsdir** directory for all files beginning with **test_** and run the tests in each file it locates.
+|
+| However, if you do specify one or more **file** arguments, then *skilltest* will look for a files with that names (you may include relative or absolute paths).  If it doesn't find one, it will look in the **testsdir** for the file.
+
+Example executions
+------------------
+
+Example **test_location**
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The test definition:
+
+::
+
+  {
+      "description":
+      [
+          "Tests the handling of the location"
+      ],
+      "utterances":
+      [
+          "text 'For the forecast in {location}'",
+          "text 'For the current temperature in {location}'"
+      ],
+      "types":
+      {
+          "location":
+          [
+              "text 'west saint paul minnesota'",
+              "text 'duluth'",
+              "text 'phoenix'",
+              "text 'new ulm minnesnowta'"
+          ]
+      }
+  }
+
+Produces:
+
+::
+
+  ################################################################################
+  Test: test_location
+  ################################################################################
+
+  ================================================================================
+  Resolving utterances
+  ================================================================================
+
+  Utterance: For the forecast in {location}
+      \----> For the forecast in west saint paul minnesota
+  Utterance: For the forecast in {location}
+      \----> For the forecast in duluth
+  Utterance: For the forecast in {location}
+      \----> For the forecast in phoenix
+  Utterance: For the forecast in {location}
+      \----> For the forecast in new ulm minnesnowta
+  Utterance: For the current temperature in {location}
+      \----> For the current temperature in west saint paul minnesota
+  Utterance: For the current temperature in {location}
+      \----> For the current temperature in duluth
+  Utterance: For the current temperature in {location}
+      \----> For the current temperature in phoenix
+  Utterance: For the current temperature in {location}
+      \----> For the current temperature in new ulm minnesnowta
+
+  ================================================================================
+  Generating voice input files
+  ================================================================================
+
+  Generating: For the forecast in west saint paul minnesota
+  Generating: For the forecast in duluth
+  Generating: For the forecast in phoenix
+  Generating: For the forecast in new ulm minnesnowta
+  Generating: For the current temperature in west saint paul minnesota
+  Generating: For the current temperature in duluth
+  Generating: For the current temperature in phoenix
+  Generating: For the current temperature in new ulm minnesnowta
+
+  ================================================================================
+  Processing voice input files
+  ================================================================================
+
+  Recognizing: For the forecast in west saint paul minnesota
+  Recognizing: For the forecast in duluth
+  Recognizing: For the forecast in phoenix
+  Recognizing: For the forecast in new ulm minnesnowta
+  Recognizing: For the current temperature in west saint paul minnesota
+  Recognizing: For the current temperature in duluth
+  Recognizing: For the current temperature in phoenix
+  Recognizing: For the current temperature in new ulm minnesnowta
+
+Example **test_month**
+^^^^^^^^^^^^^^^^^^^^^^
+
+The test definition:
+
+::
+
+  {
+      "description":
+      [
+          "Tests the handling of the months."
+      ],
+      "utterances":
+      [
+          "text 'For the forecast on {month} {day}'"
+      ],
+      "types":
+      {
+          "month":
+          [
+              "file '{skilldir}/type_month'",
+              "text 'bogus month'"
+          ],
+          "day":
+          [
+              "text '1st'"
+          ]
+
+      }
+  }
+
+Produces:
+
+::
+
+  ################################################################################
+  Test: test_month
+  ################################################################################
+
+  ================================================================================
+  Resolving utterances
+  ================================================================================
+
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on january 1st
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on february 1st
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on march 1st
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on april 1st
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on may 1st
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on june 1st
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on july 1st
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on august 1st
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on september 1st
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on october 1st
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on november 1st
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on december 1st
+  Utterance: For the forecast on {month} {day}
+      \----> For the forecast on bogus month 1st
+
+  ================================================================================
+  Generating voice input files
+  ================================================================================
+
+  Generating: For the forecast on january 1st
+  Generating: For the forecast on february 1st
+  Generating: For the forecast on march 1st
+  Generating: For the forecast on april 1st
+  Generating: For the forecast on may 1st
+  Generating: For the forecast on june 1st
+  Generating: For the forecast on july 1st
+  Generating: For the forecast on august 1st
+  Generating: For the forecast on september 1st
+  Generating: For the forecast on october 1st
+  Generating: For the forecast on november 1st
+  Generating: For the forecast on december 1st
+  Generating: For the forecast on bogus month 1st
+
+  ================================================================================
+  Processing voice input files
+  ================================================================================
+
+  Recognizing: For the forecast on january 1st
+  Recognizing: For the forecast on february 1st
+  Recognizing: For the forecast on march 1st
+  Recognizing: For the forecast on april 1st
+  Recognizing: For the forecast on may 1st
+  Recognizing: For the forecast on june 1st
+  Recognizing: For the forecast on july 1st
+  Recognizing: For the forecast on august 1st
+  Recognizing: For the forecast on september 1st
+  Recognizing: For the forecast on october 1st
+  Recognizing: For the forecast on november 1st
+  Recognizing: For the forecast on december 1st
+  Recognizing: For the forecast on bogus month 1st
+
+Example **test_zipcode**
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The test definition:
+
+::
+
+
+  {
+      "description":
+      [
+          "Make sure zip code handling works correctly"
+      ],
+      "utterances":
+      [
+          "text 'For the alerts in {zipcode}'",
+          "text 'For the alerts in zip code {zipcode}'"
+      ],
+      "types":
+      {
+          "zipcode":
+          [
+              "file --digits '{testsdir}/type_zipcode'",
+              "text --digits 12142",
+              "text --digits 11112"
+          ]
+      }
+  }
+
+Produces:
+
+::
+
+  ################################################################################
+  Test: test_zipcode
+  ################################################################################
+
+  ================================================================================
+  Resolving utterances
+  ================================================================================
+
+  Utterance: For the alerts in {zipcode}
+      \----> For the alerts in 5 5 1 1 8
+  Utterance: For the alerts in {zipcode}
+      \----> For the alerts in 7 1 3 0 1
+  Utterance: For the alerts in {zipcode}
+      \----> For the alerts in 5 6 3 0 8
+  Utterance: For the alerts in {zipcode}
+      \----> For the alerts in 1 2 1 4 2
+  Utterance: For the alerts in {zipcode}
+      \----> For the alerts in 1 1 1 1 2
+  Utterance: For the alerts in zip code {zipcode}
+      \----> For the alerts in zip code 5 5 1 1 8
+  Utterance: For the alerts in zip code {zipcode}
+      \----> For the alerts in zip code 7 1 3 0 1
+  Utterance: For the alerts in zip code {zipcode}
+      \----> For the alerts in zip code 5 6 3 0 8
+  Utterance: For the alerts in zip code {zipcode}
+      \----> For the alerts in zip code 1 2 1 4 2
+  Utterance: For the alerts in zip code {zipcode}
+      \----> For the alerts in zip code 1 1 1 1 2
+
+  ================================================================================
+  Generating voice input files
+  ================================================================================
+
+  Generating: For the alerts in 5 5 1 1 8
+  Generating: For the alerts in 7 1 3 0 1
+  Generating: For the alerts in 5 6 3 0 8
+  Generating: For the alerts in 1 2 1 4 2
+  Generating: For the alerts in 1 1 1 1 2
+  Generating: For the alerts in zip code 5 5 1 1 8
+  Generating: For the alerts in zip code 7 1 3 0 1
+  Generating: For the alerts in zip code 5 6 3 0 8
+  Generating: For the alerts in zip code 1 2 1 4 2
+  Generating: For the alerts in zip code 1 1 1 1 2
+
+  ================================================================================
+  Processing voice input files
+  ================================================================================
+
+  Recognizing: For the alerts in 5 5 1 1 8
+  Recognizing: For the alerts in 7 1 3 0 1
+  Recognizing: For the alerts in 5 6 3 0 8
+  Recognizing: For the alerts in 1 2 1 4 2
+  Recognizing: For the alerts in 1 1 1 1 2
+  Recognizing: For the alerts in zip code 5 5 1 1 8
+  Recognizing: For the alerts in zip code 7 1 3 0 1
+  Recognizing: For the alerts in zip code 5 6 3 0 8
+  Recognizing: For the alerts in zip code 1 2 1 4 2
+  Recognizing: For the alerts in zip code 1 1 1 1 2
 

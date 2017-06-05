@@ -325,10 +325,10 @@ Running *skilltest*
                  [-w WRITECONFIG]
                  [file [file ...]]
 
-  **positional arguments**:
+  positional arguments:
     file                  name of test file(s)
 
-  **optional arguments**:
+  optional arguments:
     -h, --help            show this help message and exit
     -C, --config          path to configuration file
     -I, --inputdir        path to voice input directory

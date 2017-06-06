@@ -1,5 +1,14 @@
 #!/usr/bin/python
 
+# =============================================================================
+#
+# Copyright 2017 by Leland Lucius
+#
+# Released under the GNU Affero GPL
+# See: https://github.com/lllucius/climacast/blob/master/LICENSE
+#
+# =============================================================================
+
 from __future__ import print_function
 
 import argparse

@@ -383,6 +383,19 @@ The info provided is in JSON format and includes:
 :types:  the types used to create the resolved utterance
 :message:  the SQS message provided by your skill
 
+Setting up the SQS queue
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+You need to set up a standard (non-FIFO) queue and you can simply take all of the defaults for its parameters.  Here's an Amazon tutorial describing the process:
+
+  `Tutorial: Creating an Amazon SQS Queue <http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-create-queue.html>`_
+
+You'll also need to add permissions to your queue that allows you to read and delete messages and your skill to write messages.  You can follow Amazon's tutorial here:
+
+  `Tutorial: Adding Permissions to an Amazon SQS Queue <http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-add-permissions.html>`_
+
+It's easiest to simply click the **Everybody** and **All SQS Actions** checkboxes, but you'll need to decide how secure you need the queue.
+
 Modifying your skill
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -423,19 +436,6 @@ Whatever method or language you use, the message must be valid JSON and must at 
   }
 
 Since *skilltest* only verifies that **event** and **response** are included, you may pass back additional information from your skill.  The entire SQS message gets passed to the unit test command and, if you've specified the **keep** configuration setting or command line option, it will also be saved to the output directory.
-
-Setting up the SQS queue
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-You need to set up a standard (non-FIFO) queue and you can simply take all of the defaults for its parameters.  Here's an Amazon tutorial describing the process:
-
-  `Tutorial: Creating an Amazon SQS Queue <http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-create-queue.html>`_
-
-You'll also need to add permissions to your queue that allows you to read and delete messages and your skill to write messages.  You can follow Amazon's tutorial here:
-
-  `Tutorial: Adding Permissions to an Amazon SQS Queue <http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-add-permissions.html>`_
-
-It's easiest to simply click the **Everybody** and **All SQS Actions** checkboxes, but you'll need to decide how secure you need the queue.
 
 Example executions
 ------------------

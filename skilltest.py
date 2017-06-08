@@ -316,15 +316,6 @@ class Tester(object):
                         print("Results message missing event/response dict")
                         continue
 
-                    # Write it out if keeping results
-                    if OPTS.keep:
-                        with open(os.path.join(OPTS.outputdir, filepfx + ".txt"), "wt") as f:
-                            json.dump(er, f, indent=4)
-
-                    # Done if we're not doing unit testing
-                    if "unittest" not in test:
-                        continue
-
                     # Remove the braces from the type names
                     newtypes = {}
                     for t in types:
@@ -339,6 +330,15 @@ class Tester(object):
                         "types": newtypes,
                         "message": er
                     }
+
+                    # Write it out if keeping results
+                    if OPTS.keep:
+                        with open(os.path.join(OPTS.outputdir, filepfx + ".txt"), "wt") as f:
+                            json.dump(data, f, indent=4)
+
+                    # Done if we're not doing unit testing
+                    if "unittest" not in test:
+                        continue
 
                     unittest = test["unittest"].replace("{skilldir}", OPTS.skilldir). \
                                                 replace("{testsdir}", OPTS.testsdir)

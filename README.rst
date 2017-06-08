@@ -369,11 +369,11 @@ Unit testing
 
 With a little cooperation between your skill and *skilltest*, unit testing is possible.  You may use whatever unit testing framework or custom script you like as long as it's executable as a shell command and can takes it's input from stdin.
 
-In addition, you can save the event and skill response JSON similar to the output from Amazon's skill simulator.  The difference is that the event and response are a result of voice interaction with your skill and that can produce different results than the skill simulator.
+In addition, you can save the **event** and **response** from your skill in a way that's similar to the output from Amazon's skill simulator.  The difference is that this **event** and **response** JSON are a result of voice interaction with your skill and that can produce different results than the skill simulator.
 
-To utilize this feature, you must add a small bit of code to your skill and set up an SQS queue in AWS where your skill will write the event and response JSON.
+To utilize this feature, you must add a small bit of code to your skill and set up an SQS queue in AWS where your skill will write the **event** and **response** JSON.
 
-After invoking your skill via AVS, *skilltest* will then retrieve the message from the SQS queue, invoke the unit test command you've specified, and pass it the event/response JSON (with other info) via stdin.
+After invoking your skill via AVS, *skilltest* will then retrieve the message from the SQS queue and pass it (along with other info) via stdin to the unit test command you've specified.
 
 The info provided is in JSON format and includes:
 
@@ -386,18 +386,21 @@ The info provided is in JSON format and includes:
 Modifying your skill
 ^^^^^^^^^^^^^^^^^^^^
 
-As mentioned above, your skill must write the **event** and **response** JSON to an SQS queue.  Of course, there are many ways to accomplish this, but here's a small example using python and AWS lambda:
+As mentioned above, your skill must write a message to an SQS queue.  Of course, there are many ways to accomplish this, but here's a small example using python and AWS lambda:
 
 ::
 
-  from boto3 import client as awsclient
   def lambda_handler(event, context=None):
       response = Skill().handle_event(event)
+
+      # Queue the skilltest message if we're testing
       queue_url = os.environ.get("queue_url", None)
       if queue_url:
+          from boto3 import client as awsclient
           body = {"event": event, "response": response}
           awsclient("sqs").send_message(QueueUrl=queue_url,
                                         MessageBody=json.dumps(body))
+
       return response
 
 Whatever method or language you use, the message must be valid JSON and must at least include the event and response:
@@ -419,7 +422,7 @@ Whatever method or language you use, the message must be valid JSON and must at 
       }
   }
 
-Since *skilltest* only verifies that "event" and "response" are included, you may pass back additional information from your skill.  The entire SQS message gets passed to the unit test command and will be saved to the output directory if you've used the **keep** configuration setting or command line option.
+Since *skilltest* only verifies that **event** and **response** are included, you may pass back additional information from your skill.  The entire SQS message gets passed to the unit test command and, if you've specified the **keep** configuration setting or command line option, it will also be saved to the output directory.
 
 Setting up the SQS queue
 ^^^^^^^^^^^^^^^^^^^^^^^^

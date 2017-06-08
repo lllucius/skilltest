@@ -1,0 +1,37 @@
+#!/usr/bin/python
+
+import json
+import re
+import sys
+import unittest
+
+class TestStringMethods(unittest.TestCase):
+    def test_slots(self):
+        """
+            Ensure expected types and received slot values match
+        """
+        types = DATA["types"]
+        req = DATA["message"]["event"]["request"]
+
+        self.assertTrue("intent" in req)
+        slots = req["intent"]["slots"]
+        for t in types:
+            self.assertTrue(t in slots)
+            self.assertTrue("value" in slots[t])
+            self.assertEqual(types[t], slots[t]["value"])
+
+        # Make sure there were no extra slot assignments
+        for s in slots:
+            self.assertTrue(s in types or "value" not in slots[s])
+
+    def test_response(self):
+        """
+            Make sure it looks like a forecast response
+        """
+        speech = DATA["message"]["response"]["response"]["outputSpeech"]["ssml"]
+        self.assertTrue(re.search(r".*(will be|expect).*", speech))
+        
+if __name__ == "__main__":
+    DATA = json.load(sys.stdin)
+    unittest.main()
+

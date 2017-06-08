@@ -32,6 +32,7 @@ Package requirements
 All of these non-core packages should get installed automatically via pip when you
 install *skilltest*:
 
+- `boto3 <https://pypi.python.org/pypi/boto3>`_
 - `bs4 <https://pypi.python.org/pypi/bs4>`_
 - `numpy <https://pypi.python.org/pypi/numpy>`_
 - `requests <https://pypi.python.org/pypi/requests>`_
@@ -165,10 +166,12 @@ The configuration file
       "testsdir": "./example/tests",
       "bypass": false,
       "regen": false,
+      "keep": false,
       "avstasks": 1,
       "ttstasks": 1,
       "ttsmethod": "espeak",
       "invocation": "your skill's invocation name",
+      "queueurl": "SQS queue where skill results get written",
       "email": "your AVS email address",
       "password": "your AVS password",
       "deviceid": "your AVS device type ID",
@@ -191,6 +194,8 @@ The configuration file
 
  :regen: **true** or **false** Boolean when set to **true** will force regeneration of the AVS voice input files.  Otherwise, existing files using the same utterance will be reused.
 
+ :keep: **true** or **false** Boolean when set to **true** will write the skill results to the output directory.  See `Unit testing <Unit testing_>`_  for more info.
+
  :avstasks: the number of AVS tasks that will be run concurrently.  While Amazon can probably handle anything you throw at it, you might want to be a good netizen and not set this too high.
 
  :ttstasks: the number of TTS tasks that will be run concurrently.  Totally depends on your machine, but setting to at least the number of processors core you have will greatly speed up TTS conversions.
@@ -198,6 +203,8 @@ The configuration file
  :ttsmethod: this tells *skilltest* which TTS method to use.  The valid values are **espeak**, **osx**, and **sapi**.  See `Speech synthesizer setup <Speech synthesizer setup_>`_ for a discussion of the different methods.
 
  :invocation: your skill's invocation name as defined in the Amazon **Skill Information** page for the target skill.  Other than the use of a synthesized voice, *skilltest* asks Alexa to invoke your skill just like you would, so it needs the invocation name.
+
+ :queueurl: the URL of the SQS queue you set up to pass skill results back to *skilltest*.  See `Unit testing <Unit testing_>`_ for more info.
 
  :email: your AWS developer email address is needed to perform initial authentication to your AVS test device.
 
@@ -279,6 +286,8 @@ The test definition file
 
 :config: (dict) You may override any of the *skilltest* configuration settings when a test begins.  The example shown, changes the synthesizer and forces regeneration, presumably because this particular test works better with a different voice (for example).
 
+:unittest: (string) This specifies the command *skilltest* will execute for each tested utterance to allow you to verify the results.  See `Unit testing <Unit testing_>`_  for more info.
+
 |
 | Each **list** item, may utilize any combination of different methods for supplying the test data.  You may specify as many as you need, just remember that for every item listed, each value provided by the method will cause an additional test to be sent to AVS and you can quickly get into the hundreds of tests.  See the **bypass** configuration and command line options for reviewing the utterances before actually testing.
 |
@@ -338,7 +347,9 @@ Running *skilltest*
     -a, --avstasks        number of concurrent AVS requests
     -b, --bypass          bypass calling AVS to process utterance
     -i, --invocation      invocation name of skill
+    -k, --keep            keep the event/response for each utterance
     -r, --regen           regenerate voice input files
+    -q, --queueurl        SQS queue URL for results
     -s, --synth           TTS synthesizer to use (espeak, osx, sapi)
     -t, --ttstasks        number of concurrent TTS conversions
     -w, --writeconfig     path for generated configuration file
@@ -352,6 +363,76 @@ Running *skilltest*
 | If you do not specify the **file** argument, *skilltest* will look in the **testsdir** directory for all files beginning with **test_** and run the tests in each file it locates.
 |
 | However, if you do specify one or more **file** arguments, then *skilltest* will look files with those names (you may include relative or absolute paths).  If it doesn't find one, it will look in the **testsdir** instead.
+
+Unit testing
+------------
+
+With a little cooperation between your skill and *skilltest*, unit testing is possible.  You may use whatever unit testing framework or custom script you like as long as it's executable as a shell command and can takes it's input from stdin.
+
+In addition, you can save the event and skill response JSON similar to the output from Amazon's skill simulator.  The difference is that the event and response are a result of voice interaction with your skill and that can produce different results than the skill simulator.
+
+To utilize this feature, you must add a small bit of code to your skill and set up an SQS queue in AWS where your skill will write the event and response JSON.
+
+After invoking your skill via AVS, *skilltest* will then retrieve the message from the SQS queue, invoke the unit test command you've specified, and pass it the event/response JSON (with other info) via stdin.
+
+The info provided is in JSON format and includes:
+
+:testname:  the name of the test
+:utterance:  the original unresolved utterance
+:resolved:  the utterance with all types resolved
+:types:  the types used to create the resolved utterance
+:message:  the SQS message provided by your skill
+
+Modifying your skill
+^^^^^^^^^^^^^^^^^^^^
+
+As mentioned above, your skill must write the **event** and **response** JSON to an SQS queue.  Of course, there are many ways to accomplish this, but here's a small example using python and AWS lambda:
+
+::
+
+  from boto3 import client as awsclient
+  def lambda_handler(event, context=None):
+      response = Skill().handle_event(event)
+      queue_url = os.environ.get("queue_url", None)
+      if queue_url:
+          body = {"event": event, "response": response}
+          awsclient("sqs").send_message(QueueUrl=queue_url,
+                                        MessageBody=json.dumps(body))
+      return response
+
+Whatever method or language you use, the message must be valid JSON and must at least include the event and response:
+
+::
+
+  {
+      "event":
+      {
+          ... the event as passed to your skill ...
+      },
+      "response":
+      {
+          ... the response from your skill ...
+      }
+      "anything else":
+      {
+          ... any additional info you might need ...
+      }
+  }
+
+Since *skilltest* only verifies that "event" and "response" are included, you may pass back additional information from your skill.  The entire SQS message gets passed to the unit test command and will be saved to the output directory if you've used the **keep** configuration setting or command line option.
+
+Setting up the SQS queue
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+You need to set up a standard (non-FIFO) queue and you can simply take all of the defaults for its parameters.  Here's an Amazon tutorial describing the process:
+
+  `Tutorial: Creating an Amazon SQS Queue <http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-create-queue.html>`_
+
+You'll also need to add permissions to your queue that allows you to read and delete messages and your skill to write messages.  You can follow Amazon's tutorial here:
+
+  `Tutorial: Adding Permissions to an Amazon SQS Queue <http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-add-permissions.html>`_
+
+It's easiest to simply click the **Everybody** and **All SQS Actions** checkboxes, but you'll need to decide how secure you need the queue.
 
 Example executions
 ------------------
@@ -553,7 +634,6 @@ The test definition:
 
 ::
 
-
   {
       "description":
       [
@@ -637,4 +717,90 @@ Produces:
   Recognizing: For the alerts in zip code 5 6 3 0 8
   Recognizing: For the alerts in zip code 1 2 1 4 2
   Recognizing: For the alerts in zip code 1 1 1 1 2
+
+Example **test_unittest**
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The test definition:
+
+::
+
+  {
+      "description":
+      [
+          "An example of unit testing."
+      ],
+      "utterances":
+      [
+          "text 'for the {metric}'",
+          "text 'for the weather'"
+      ],
+      "types":
+      {
+          "metric":
+          [
+              "text 'forecast'"
+          ]
+      },
+      "unittest": "python '{testsdir}/unit_test'"
+  }
+
+Produces:
+
+::
+
+  ################################################################################
+  Test: test_unittest
+  ################################################################################
+
+  ================================================================================
+  Resolving utterances
+  ================================================================================
+
+  Utterance: for the {metric}
+      \----> for the forecast
+  Utterance: for the weather
+      \----> for the weather
+
+  ================================================================================
+  Generating voice input files
+  ================================================================================
+
+  Generating: for the forecast
+  Generating: for the weather
+
+  ================================================================================
+  Processing voice input files
+  ================================================================================
+
+  Recognizing: for the forecast
+  Unit test:   ..
+               ----------------------------------------------------------------------
+               Ran 2 tests in 0.000s
+
+               OK
+
+  Recognizing: for the weather
+  Unit test:   FF
+               ======================================================================
+               FAIL: test_response (__main__.TestStringMethods)
+               ----------------------------------------------------------------------
+               Traceback (most recent call last):
+                 File "/root/alexa/kloudy/tests/unit_test", line 32, in test_response
+                   self.assertTrue(re.search(r".*(will be|expect).*", speech))
+               AssertionError: None is not true
+
+               ======================================================================
+               FAIL: test_slots (__main__.TestStringMethods)
+               ----------------------------------------------------------------------
+               Traceback (most recent call last):
+                 File "/root/alexa/kloudy/tests/unit_test", line 25, in test_slots
+                   self.assertTrue(s in types or "value" not in slots[s])
+               AssertionError: False is not true
+
+               ----------------------------------------------------------------------
+               Ran 2 tests in 0.001s
+
+               FAILED (failures=2)
+
 

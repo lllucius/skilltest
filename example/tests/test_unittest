@@ -1,0 +1,19 @@
+{
+    "description":
+    [
+        "An example of unit testing."
+    ],
+    "utterances":
+    [
+        "text 'for the {metric}'",
+        "text 'for the weather'"
+    ],
+    "types":
+    {
+        "metric":
+        [
+            "text 'forecast'"
+        ]
+    },
+    "unittest": "python '{testsdir}/unit_test'"
+}

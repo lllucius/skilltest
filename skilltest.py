@@ -28,6 +28,7 @@ import soundfile
 import sys
 import traceback
 import types
+from boto3 import client as awsclient
 from bs4 import BeautifulSoup
 from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
@@ -48,6 +49,8 @@ SUB_RE = re.compile(r"{(?P<var>.*?)\}[/\\]*")
 
 PLAT = sys.platform
 
+SQS = awsclient("sqs")
+
 CFG = \
 {
     "inputdir": "./results/input",
@@ -56,10 +59,12 @@ CFG = \
     "testsdir": "./tests",
     "bypass": False,
     "regen": False,
+    "keep": False,
     "avstasks": 1,
     "ttstasks": 1,
     "synth": "sapi" if PLAT == "win32" else "osx" if PLAT == "darwin" else "espeak",
     "invocation":  "your skill's invocation name",
+    "queueurl": "results SQS queue URL",
     "email": "your AVS email address",
     "password": "your AVS password",
     "clientid": "your AVS device clientid",
@@ -177,6 +182,25 @@ class Tester(object):
             if "config" in test:
                 OPTS.merge_dict(test["config"])
 
+            # Using the response queue?
+            if "unittest" in test or OPTS.keep:
+                # Make sure we can do it
+                if OPTS.queueurl is None:
+                    print("SQS queue URL needed if unit testing or keeping results...disabling")
+                    test["unittest"] = None
+                    OPTS.keep = False
+                else:
+                    # Must single thread AVS if unit testing or keeping results
+                    OPTS.avstasks = 1
+
+                    # Shouldn't be necessary, but clear the queue
+                    # (don't use purge_queue as if forces a 60 second delay between runs)
+                    while True:
+                        resp = SQS.receive_message(QueueUrl=OPTS.queueurl, WaitTimeSeconds=1)
+                        if resp is None or "Messages" not in resp:
+                            break
+                        SQS.delete_message(QueueUrl=OPTS.queueurl, ReceiptHandle=resp["Messages"][0]["ReceiptHandle"])
+
             print()
             print("=" * 80)
             print("Resolving utterances")
@@ -217,7 +241,7 @@ class Tester(object):
                         print("Utterance:", utterance)
                         print("    \---->", resolved)
                         filepfx = resolved.replace(" ", "_").replace("'", "")
-                        tests.append([testname, utterance, resolved, filepfx])
+                        tests.append([testname, utterance, resolved, filepfx, t])
 
         if not OPTS.bypass:
             if "setup" in test:
@@ -240,7 +264,7 @@ class Tester(object):
             print()
 
             with ProcessPoolExecutor(max_workers=OPTS.ttstasks) as executor:
-                for testname, utterance, resolved, filepfx in tests:
+                for testname, utterance, resolved, filepfx, _ in tests:
                     name = os.path.join(OPTS.inputdir, filepfx + ".wav")
                     if not os.path.exists(name) or OPTS.regen:
                         print("Generating:", resolved)
@@ -259,12 +283,75 @@ class Tester(object):
             print()
 
             with ProcessPoolExecutor(max_workers=OPTS.avstasks) as executor:
-                for testname, utterance, resolved, filepfx in tests:
+                for testname, utterance, resolved, filepfx, types in tests:
                     print("Recognizing:", resolved)
-                    if OPTS.avstasks == 1:
-                        run_avs(filepfx)
-                    else:
+                    if OPTS.avstasks > 1:
                         executor.submit(run_avs, filepfx)
+                        continue
+                    run_avs(filepfx)
+
+                    # Continue to next utterance if we're not checking results
+                    if "unittest" not in test and not OPTS.keep:
+                        continue
+
+                    # Get the results message
+                    resp = SQS.receive_message(QueueUrl=OPTS.queueurl, WaitTimeSeconds=10)
+                    if resp is None or "Messages" not in resp:
+                        print("Expected a results message...none received")
+                        continue
+                    msg = resp["Messages"][0]
+
+                    # Delete it
+                    SQS.delete_message(QueueUrl=OPTS.queueurl, ReceiptHandle=msg["ReceiptHandle"])
+
+                    # Attempt to parse it
+                    try:
+                        er = json.loads(msg["Body"])
+                    except:
+                        print("Parsing results message failed")
+                        continue
+
+                    # Make sure we have both the event and response dicts
+                    if "event" not in er or "response" not in er:
+                        print("Results message missing event/response dict")
+                        continue
+
+                    # Write it out if keeping results
+                    if OPTS.keep:
+                        with open(os.path.join(OPTS.outputdir, filepfx + ".txt"), "wt") as f:
+                            json.dump(er, f, indent=4)
+
+                    # Done if we're not doing unit testing
+                    if "unittest" not in test:
+                        continue
+
+                    # Remove the braces from the type names
+                    newtypes = {}
+                    for t in types:
+                        newtypes[t.strip("{}")] = types[t]
+
+                    # Create the unit test input
+                    data = \
+                    {
+                        "testname": testname,
+                        "utterance": utterance,
+                        "resolved": resolved,
+                        "types": newtypes,
+                        "message": er
+                    }
+
+                    unittest = test["unittest"].replace("{skilldir}", OPTS.skilldir). \
+                                                replace("{testsdir}", OPTS.testsdir)
+
+                    p = Popen(unittest, shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+                    _, err = p.communicate(json.dumps(data))
+
+                    leader = "Unittest:   "
+                    err = err.decode("UTF-8").replace("\r\n", "\n").replace("\r", "\n")
+                    for line in err.split("\n"):
+                        print("%s %s" % (leader, line))
+                        leader = " " * 12
+
                 executor.shutdown(wait=True)
 
             if "cleanup" in test:
@@ -655,6 +742,10 @@ def main():
                         help="bypass calling AVS to process utterance")
     parser.add_argument("-i", "--invocation", type=str,
                         help="invocation name of skill")
+    parser.add_argument("-k", "--keep", action="store_const", const=True,
+                        help="keep the event/response for each utterance")
+    parser.add_argument("-q", "--queueurl", type=str,
+                        help="SQS queue URL for results")
     parser.add_argument("-r", "--regen", action="store_const", const=True,
                         help="regenerate voice input files")
     parser.add_argument("-s", "--synth", choices=["espeak", "osx", "sapi"],

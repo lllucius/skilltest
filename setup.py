@@ -36,13 +36,7 @@ setup(
     ],
     keywords="alexa automated testing",
     py_modules=["skilltest"],
-    install_requires=["boto3",
-                      "bs4",
-                      "numpy",
-                      "requests",
-                      "requests_toolbelt",
-                      "samplerate",
-                      "soundfile"],
+    install_requires=["boto3"],
     entry_points={
         "console_scripts": [
             "skilltest=skilltest:main",

@@ -1,0 +1,18 @@
+{
+    "description":
+    [
+        "Test with slots for location."
+    ],
+    "utterances":
+    [
+        "text 'ForecastIntent For the forecast in {location}'"
+    ],
+    "types":
+    {
+        "location":
+        [
+            "text 'Minneapolis'",
+            "text 'New York'"
+        ]
+    }
+}

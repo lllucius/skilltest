@@ -273,7 +273,7 @@ Example output file:
 
 **Solution:** 
 - Check that `lambda_dir` points to the correct directory
-- Verify that `lambda_module`.py exists in that directory
+- Verify that the file `<lambda_module>.py` exists in that directory (e.g., `lambda_function.py`)
 - Use absolute or relative paths correctly
 
 ### Handler Not Found

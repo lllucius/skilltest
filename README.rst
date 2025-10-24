@@ -4,24 +4,22 @@ About *skilltest*
 =================
 
 The *skilltest* command makes Alexa skill testing much easier and less tedious.
-You still have to review the generated audio responses, but when you have dozens
-or hundreds of utterance permutations, using *skilltest* will save you a lot of
-time and your voice.
+When you have dozens or hundreds of utterance permutations, using *skilltest* will 
+save you a lot of time.
+
+**Version 2.0** - Direct Lambda Invocation
+
+This version has been updated to invoke your Alexa skill's lambda function directly,
+eliminating the need for deprecated Alexa Voice Services (AVS) APIs. The tool now:
+
+- Directly invokes your local lambda_function.py
+- Creates proper Alexa request JSON from test utterances
+- Captures and validates responses without requiring voice synthesis or AVS
+- Supports the same test definition format for backward compatibility
 
 Through the use of test definitions, you give *skilltest* the utterances and sample
-slot values it needs to provide synthesized input to the Alexa Voice Service.  It
-then saves the MP3 files created by AVS for your review.
-
-To create the voice input, *skilltest* can use several text-to-speech methods
-including Windows *SAPI5*, the *espeak* command line utility, and the Mac OS X
-*say* command line utility.
-
-Caveat
-======
-
-Because *skilltest* is intended to function completely unattended and (currently) from the command line, it auto accepts the AVS consent and acknowledgement web pages on your behalf.  Please do not use *skilltest* if you don't want to accept them.
-
-However, I may change this to bring up the default web browser the first time you use a new AVS device.  I'm also looking into added a web UI to *skilltest*.  In either of those cases, the normal AVS acceptance process could be used.
+slot values it needs to construct Alexa requests. It then invokes your lambda function
+directly and saves the JSON request/response for your review.
 
 Installation
 ============
@@ -29,16 +27,9 @@ Installation
 Package requirements
 --------------------
 
-All of these non-core packages should get installed automatically via pip when you
-install *skilltest*:
+The only non-core package requirement is:
 
-- `boto3 <https://pypi.python.org/pypi/boto3>`_
-- `bs4 <https://pypi.python.org/pypi/bs4>`_
-- `numpy <https://pypi.python.org/pypi/numpy>`_
-- `requests <https://pypi.python.org/pypi/requests>`_
-- `requests_toolbelt <https://pypi.python.org/pypi/requests-toolbelt>`_
-- `samplerate <https://pypi.python.org/pypi/samplerate>`_
-- `soundfile <https://pypi.python.org/pypi/SoundFile>`_
+- `boto3 <https://pypi.python.org/pypi/boto3>`_ (optional, only needed if using SQS for unit testing)
 
 Installing *skilltest*
 ----------------------
@@ -47,7 +38,7 @@ Installing *skilltest*
 |
 | If you checked out the source from GitHub, just change to the repo directory.
 |
-| Installing *skilltest* isn't absolutely necessary since it will happily run from this directory.  And since it's only a single module, it's easy to just throw it where ever you like, just ensure that all of the requirements listed above are installed.
+| Installing *skilltest* isn't absolutely necessary since it will happily run from this directory.  And since it's only a single module, it's easy to just throw it where ever you like.
 |
 | But, if you prefer to install, then simply run setup.py:
 |
@@ -182,41 +173,31 @@ The configuration file
 
 | Where:
 
- :inputdir: the path where the AVS voice input files get written.  It may be the same as the **outputdir** if desired.
+ :inputdir: (deprecated, kept for compatibility) the path where input files were written in older versions.
 
- :outputdir: the path where the AVS response files get written.  Again, it may be the same as the **inputdir**, but you might want to keep them separate since the TTS process can be bypassed if the file already exists.  And you'll probably be cleaning the **outputdir** quite often.  (Makes it easier to review the output.)
+ :outputdir: the path where the test result JSON files get written containing the Alexa request and response.
 
  :skilldir: the path where you store (at least) your *utterance* file.  If your skill also uses custom types, you might want to store copies of them in this directory as they can be used to resolve slot values in the utterances.  (See the **example/skill** directory for samples.)
 
- :testsdir: the path were you store (at least) your *test definition* files.  You might want to also store pseudo custom types here for resolving slot values.  (See the **exampe/tests** director for samples.)
+ :testsdir: the path were you store (at least) your *test definition* files.  You might want to also store pseudo custom types here for resolving slot values.  (See the **example/tests** directory for samples.)
 
- :bypass: **true** or **false** Boolean that indicates whether utterances should be sent to AVS after resolving the slot values.  Setting this to **true** can be useful while creating your tests to review the correctness of the resolution.
+ :bypass: **true** or **false** Boolean that indicates whether utterances should be sent to the lambda function after resolving the slot values.  Setting this to **true** can be useful while creating your tests to review the correctness of the resolution.
 
- :regen: **true** or **false** Boolean when set to **true** will force regeneration of the AVS voice input files.  Otherwise, existing files using the same utterance will be reused.
+ :regen: (deprecated, kept for compatibility) previously forced regeneration of voice input files.
 
  :keep: **true** or **false** Boolean when set to **true** will write the skill results to the output directory.  See `Unit testing <Unit testing_>`_  for more info.
 
- :avstasks: the number of AVS tasks that will be run concurrently.  While Amazon can probably handle anything you throw at it, you might want to be a good netizen and not set this too high.
+ :tasks: the number of lambda invocation tasks that will be run concurrently.  Set to 1 for sequential processing or higher for parallel testing.
 
- :ttstasks: the number of TTS tasks that will be run concurrently.  Totally depends on your machine, but setting to at least the number of processors core you have will greatly speed up TTS conversions.
+ :invocation: your skill's invocation name as defined in the Amazon **Skill Information** page for the target skill.  This is used for informational purposes in test output.
 
- :ttsmethod: this tells *skilltest* which TTS method to use.  The valid values are **espeak**, **osx**, and **sapi**.  See `Speech synthesizer setup <Speech synthesizer setup_>`_ for a discussion of the different methods.
+ :queueurl: (optional) the URL of the SQS queue you set up to pass skill results back to *skilltest*.  See `Unit testing <Unit testing_>`_ for more info. If not specified, results are read directly from the lambda response.
 
- :invocation: your skill's invocation name as defined in the Amazon **Skill Information** page for the target skill.  Other than the use of a synthesized voice, *skilltest* asks Alexa to invoke your skill just like you would, so it needs the invocation name.
+ :lambda_dir: the path to the directory containing your lambda function code (e.g., "./lambda" or "../skill").
 
- :queueurl: the URL of the SQS queue you set up to pass skill results back to *skilltest*.  See `Unit testing <Unit testing_>`_ for more info.
+ :lambda_module: the name of the Python module containing your lambda handler (default: "lambda_function").
 
- :email: your AWS developer email address is needed to perform initial authentication to your AVS test device.
-
- :password: your AWS developer password is needed as well.
-
- :deviceid: this is the **Device Type ID** you gave your AVS device.
-
- :clientid: this is the **Client ID** you copied when creating your AVS device.
-
- :secret: this is the **Client Secret** you copied when creating your AVS device.
-
- :redirect: this is the URL you entered for the **Allow Return URLs** settting when creating your AVS device.
+ :lambda_handler: the name of the handler function in your lambda module (default: "lambda_handler").
 
 Using *skilltest*
 =================
@@ -329,8 +310,9 @@ Running *skilltest*
 ::
 
   skilltest [-h] [-C CONFIG] [-I INPUTDIR] [-O OUTPUTDIR]
-                 [-S SKILLDIR] [-T TESTSDIR] [-a AVSTASKS] [-b]
-                 [-i INVOCATION] [-r] [-s {espeak,osx,sapi}] [-t TTSTASKS]
+                 [-S SKILLDIR] [-T TESTSDIR] [-L LAMBDA_DIR]
+                 [-M LAMBDA_MODULE] [-H LAMBDA_HANDLER] [-t TASKS]
+                 [-b] [-i INVOCATION] [-k] [-q QUEUEURL]
                  [-w WRITECONFIG]
                  [file [file ...]]
 
@@ -340,18 +322,18 @@ Running *skilltest*
   optional arguments:
     -h, --help            show this help message and exit
     -C, --config          path to configuration file
-    -I, --inputdir        path to voice input directory
-    -O, --outputdir       path to voice output directory
+    -I, --inputdir        path to input directory (for compatibility)
+    -O, --outputdir       path to output directory for results
     -S, --skilldir        path to skill directory
     -T, --testsdir        path to tests directory
-    -a, --avstasks        number of concurrent AVS requests
-    -b, --bypass          bypass calling AVS to process utterance
+    -L, --lambda_dir      path to lambda function directory
+    -M, --lambda_module   lambda module name (default: lambda_function)
+    -H, --lambda_handler  lambda handler function name (default: lambda_handler)
+    -t, --tasks           number of concurrent tasks
+    -b, --bypass          bypass calling lambda to process utterance
     -i, --invocation      invocation name of skill
     -k, --keep            keep the event/response for each utterance
-    -r, --regen           regenerate voice input files
-    -q, --queueurl        SQS queue URL for results
-    -s, --synth           TTS synthesizer to use (espeak, osx, sapi)
-    -t, --ttstasks        number of concurrent TTS conversions
+    -q, --queueurl        SQS queue URL for results (optional)
     -w, --writeconfig     path for generated configuration file
 
 | With the exception of the following, most of the arguments simply override the configuration file settings.  So refer to `The configuration file <The configuration file_>`_ section for details.
@@ -369,11 +351,11 @@ Unit testing
 
 With a little cooperation between your skill and *skilltest*, unit testing is possible.  You may use whatever unit testing framework or custom script you like as long as it's executable as a shell command and can takes it's input from stdin.
 
-In addition, you can save the **event** and **response** from your skill in a way that's similar to the output from Amazon's skill simulator.  The difference is that this **event** and **response** JSON are a result of voice interaction with your skill and that can produce different results than the skill simulator.
+In addition, you can save the **event** and **response** from your skill in a way that's similar to the output from Amazon's skill simulator.
 
-To utilize this feature, you must add a small bit of code to your skill and set up an SQS queue in AWS where your skill will write the **event** and **response** JSON.
+**Note:** With direct lambda invocation, the **event** and **response** JSON are always saved to the output directory. If you want to use SQS for additional validation, you can still configure it, but it's now optional.
 
-After invoking your skill via AVS, *skilltest* will then retrieve the message from the SQS queue and pass it (along with other info) via stdin to the unit test command you've specified.
+After invoking your skill's lambda function directly, *skilltest* will save the request and response JSON. If configured, it can also retrieve messages from an SQS queue and pass them (along with other info) via stdin to the unit test command you've specified.
 
 The info provided is in JSON format and includes:
 
@@ -381,7 +363,7 @@ The info provided is in JSON format and includes:
 :utterance:  the original unresolved utterance
 :resolved:  the utterance with all types resolved
 :types:  the types used to create the resolved utterance
-:message:  the SQS message provided by your skill
+:message:  the message containing event and response
 
 Setting up the SQS queue
 ^^^^^^^^^^^^^^^^^^^^^^^^

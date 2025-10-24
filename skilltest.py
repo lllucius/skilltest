@@ -269,6 +269,16 @@ class Tester(object):
 
                     iterables = []
                     for typename in typenames:
+                        if typename not in types:
+                            # Extract the slot name without curly braces for the error message
+                            slotname = typename.strip('{}')
+                            print()
+                            print("ERROR: Utterance contains slot type '%s' that is not defined in the 'types' section." % slotname)
+                            print("       Utterance: %s" % utterance)
+                            print()
+                            print("Please add '%s' to the 'types' dictionary in your test definition." % slotname)
+                            print()
+                            sys.exit(1)
                         iterables.append(types[typename])
 
                     for iterable in itertools.product(*iterables):

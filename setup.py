@@ -36,7 +36,7 @@ setup(
     ],
     keywords="alexa automated testing",
     py_modules=["skilltest"],
-    install_requires=["boto3"],
+    install_requires=[],
     entry_points={
         "console_scripts": [
             "skilltest=skilltest:main",

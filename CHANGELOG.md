@@ -13,14 +13,13 @@ This repository has been successfully migrated from using deprecated Alexa Voice
 - Better debugging with direct access to request/response JSON
 
 ### Simplified Dependencies
-- **Removed**: bs4, numpy, requests, requests_toolbelt, samplerate, soundfile
-- **Optional**: boto3 (only needed if using SQS for unit testing)
+- **Removed**: bs4, numpy, requests, requests_toolbelt, samplerate, soundfile, boto3
+- No external dependencies required
 - Lighter installation footprint
 - Fewer compatibility issues
 
 ### Enhanced Testing
 - Request and response JSON always saved to output directory
-- SQS queue is now optional
 - Same test definition format for backward compatibility
 - Better error messages and debugging
 
@@ -152,7 +151,6 @@ Key changes:
 ## Requirements
 
 - Python 2.7+ or Python 3.4+
-- boto3 (optional, only for SQS unit testing)
 - Your lambda function and its dependencies
 
 ## License

@@ -27,9 +27,7 @@ Installation
 Package requirements
 --------------------
 
-The only non-core package requirement is:
-
-- `boto3 <https://pypi.python.org/pypi/boto3>`_ (optional, only needed if using SQS for unit testing)
+*skilltest* has no external dependencies. All required packages are part of Python's standard library.
 
 Installing *skilltest*
 ----------------------
@@ -158,17 +156,11 @@ The configuration file
       "bypass": false,
       "regen": false,
       "keep": false,
-      "avstasks": 1,
-      "ttstasks": 1,
-      "ttsmethod": "espeak",
-      "invocation": "your skill's invocation name",
-      "queueurl": "SQS queue where skill results get written",
-      "email": "your AVS email address",
-      "password": "your AVS password",
-      "deviceid": "your AVS device type ID",
-      "clientid": "your AVS device clientid",
-      "secret": "your AVS device secret",
-      "redirect": "your AVS device redirect URL"
+      "tasks": 1,
+      "invocation": "example skill",
+      "lambda_dir": "./example/lambda",
+      "lambda_module": "lambda_function",
+      "lambda_handler": "lambda_handler"
   }
 
 | Where:
@@ -190,8 +182,6 @@ The configuration file
  :tasks: the number of lambda invocation tasks that will be run concurrently.  Set to 1 for sequential processing or higher for parallel testing.
 
  :invocation: your skill's invocation name as defined in the Amazon **Skill Information** page for the target skill.  This is used for informational purposes in test output.
-
- :queueurl: (optional) the URL of the SQS queue you set up to pass skill results back to *skilltest*.  See `Unit testing <Unit testing_>`_ for more info. If not specified, results are read directly from the lambda response.
 
  :lambda_dir: the path to the directory containing your lambda function code (e.g., "./lambda" or "../skill").
 
@@ -312,7 +302,7 @@ Running *skilltest*
   skilltest [-h] [-C CONFIG] [-I INPUTDIR] [-O OUTPUTDIR]
                  [-S SKILLDIR] [-T TESTSDIR] [-L LAMBDA_DIR]
                  [-M LAMBDA_MODULE] [-H LAMBDA_HANDLER] [-t TASKS]
-                 [-b] [-i INVOCATION] [-k] [-q QUEUEURL]
+                 [-b] [-i INVOCATION] [-k]
                  [-w WRITECONFIG]
                  [file [file ...]]
 
@@ -333,7 +323,6 @@ Running *skilltest*
     -b, --bypass          bypass calling lambda to process utterance
     -i, --invocation      invocation name of skill
     -k, --keep            keep the event/response for each utterance
-    -q, --queueurl        SQS queue URL for results (optional)
     -w, --writeconfig     path for generated configuration file
 
 | With the exception of the following, most of the arguments simply override the configuration file settings.  So refer to `The configuration file <The configuration file_>`_ section for details.
@@ -349,13 +338,11 @@ Running *skilltest*
 Unit testing
 ------------
 
-With a little cooperation between your skill and *skilltest*, unit testing is possible.  You may use whatever unit testing framework or custom script you like as long as it's executable as a shell command and can takes it's input from stdin.
+With direct lambda invocation, *skilltest* always saves the **event** and **response** from your skill to the output directory in JSON format, similar to the output from Amazon's skill simulator.
 
-In addition, you can save the **event** and **response** from your skill in a way that's similar to the output from Amazon's skill simulator.
+You can use whatever unit testing framework or custom script you like as long as it's executable as a shell command and can take its input from stdin.
 
-**Note:** With direct lambda invocation, the **event** and **response** JSON are always saved to the output directory. If you want to use SQS for additional validation, you can still configure it, but it's now optional.
-
-After invoking your skill's lambda function directly, *skilltest* will save the request and response JSON. If configured, it can also retrieve messages from an SQS queue and pass them (along with other info) via stdin to the unit test command you've specified.
+After invoking your skill's lambda function directly, *skilltest* will save the request and response JSON and pass them (along with other info) via stdin to the unit test command you've specified.
 
 The info provided is in JSON format and includes:
 
@@ -365,59 +352,7 @@ The info provided is in JSON format and includes:
 :types:  the types used to create the resolved utterance
 :message:  the message containing event and response
 
-Setting up the SQS queue
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-You need to set up a standard (non-FIFO) queue and you can simply take all of the defaults for its parameters.  Here's an Amazon tutorial describing the process:
-
-  `Tutorial: Creating an Amazon SQS Queue <http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-create-queue.html>`_
-
-You'll also need to add permissions to your queue that allows you to read and delete messages and your skill to write messages.  You can follow Amazon's tutorial here:
-
-  `Tutorial: Adding Permissions to an Amazon SQS Queue <http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-add-permissions.html>`_
-
-It's easiest to simply click the **Everybody** and **All SQS Actions** checkboxes, but you'll need to decide how secure you need the queue.
-
-Modifying your skill
-^^^^^^^^^^^^^^^^^^^^
-
-As mentioned above, your skill must write a message to an SQS queue.  Of course, there are many ways to accomplish this, but here's a small example using python and AWS lambda:
-
-::
-
-  def lambda_handler(event, context=None):
-      response = Skill().handle_event(event)
-
-      # Queue the skilltest message if we're testing
-      queue_url = os.environ.get("queue_url", None)
-      if queue_url:
-          from boto3 import client as awsclient
-          body = {"event": event, "response": response}
-          awsclient("sqs").send_message(QueueUrl=queue_url,
-                                        MessageBody=json.dumps(body))
-
-      return response
-
-Whatever method or language you use, the message must be valid JSON and must at least include the event and response:
-
-::
-
-  {
-      "event":
-      {
-          ... the event as passed to your skill ...
-      },
-      "response":
-      {
-          ... the response from your skill ...
-      }
-      "anything else":
-      {
-          ... any additional info you might need ...
-      }
-  }
-
-Since *skilltest* only verifies that **event** and **response** are included, you may pass back additional information from your skill.  The entire SQS message gets passed to the unit test command and, if you've specified the **keep** configuration setting or command line option, it will also be saved to the output directory.
+No additional setup is required - the JSON files are automatically saved to your output directory for review and unit testing.
 
 Example executions
 ------------------

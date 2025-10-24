@@ -23,7 +23,6 @@ import re
 import shlex
 import sys
 import traceback
-from boto3 import client as awsclient
 from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
 from datetime import datetime
@@ -42,16 +41,6 @@ SUB_RE = re.compile(r"{(?P<var>.*?)\}[/\\]*")
 
 PLAT = sys.platform
 
-# Lazy initialization for SQS client
-_SQS = None
-
-def get_sqs_client():
-    """Get or create the SQS client"""
-    global _SQS
-    if _SQS is None:
-        _SQS = awsclient("sqs")
-    return _SQS
-
 # Intent name pattern to extract from utterances
 INTENT_RE = re.compile(r"^(\w+)\s+(.*)$")
 
@@ -66,7 +55,6 @@ CFG = \
     "keep": False,
     "tasks": 1,
     "invocation":  "your skill's invocation name",
-    "queueurl": "results SQS queue URL",
     "lambda_dir": "./lambda",
     "lambda_module": "lambda_function",
     "lambda_handler": "lambda_handler"
@@ -257,26 +245,10 @@ class Tester(object):
             if "config" in test:
                 OPTS.merge_dict(test["config"])
 
-            # Using the response queue?
+            # Using unit testing?
             if "unittest" in test or OPTS.keep:
-                # Make sure we can do it
-                if OPTS.queueurl is None and "unittest" in test:
-                    print("SQS queue URL needed if unit testing...disabling")
-                    test["unittest"] = None
-                else:
-                    # Must single thread if unit testing or keeping results
-                    OPTS.tasks = 1
-
-                    # Clear the queue if using SQS
-                    if OPTS.queueurl:
-                        SQS = get_sqs_client()
-                        # Shouldn't be necessary, but clear the queue
-                        # (don't use purge_queue as if forces a 60 second delay between runs)
-                        while True:
-                            resp = SQS.receive_message(QueueUrl=OPTS.queueurl, WaitTimeSeconds=1)
-                            if resp is None or "Messages" not in resp:
-                                break
-                            SQS.delete_message(QueueUrl=OPTS.queueurl, ReceiptHandle=resp["Messages"][0]["ReceiptHandle"])
+                # Must single thread if unit testing or keeping results
+                OPTS.tasks = 1
 
             print()
             print("=" * 80)
@@ -359,32 +331,10 @@ class Tester(object):
                     if "unittest" not in test and not OPTS.keep:
                         continue
 
-                    # For unit testing, we can work with the response directly
-                    # or optionally still use SQS if configured
-                    if OPTS.queueurl:
-                        SQS = get_sqs_client()
-                        # Get the results message from SQS if skill writes to it
-                        resp = SQS.receive_message(QueueUrl=OPTS.queueurl, WaitTimeSeconds=10)
-                        if resp is None or "Messages" not in resp:
-                            # If no SQS message, create from our direct invocation
-                            er = {"event": None, "response": response}
-                        else:
-                            msg = resp["Messages"][0]
-                            # Delete it
-                            SQS.delete_message(QueueUrl=OPTS.queueurl, ReceiptHandle=msg["ReceiptHandle"])
-                            
-                            # Attempt to parse it
-                            try:
-                                er = json.loads(msg["Body"])
-                            except:
-                                print("Parsing results message failed")
-                                continue
-                    else:
-                        # No SQS - use the response directly
-                        # Load the saved request/response from file
-                        with open(os.path.join(OPTS.outputdir, filepfx + ".json"), "rt") as f:
-                            data = json.load(f)
-                            er = {"event": data["request"], "response": data["response"]}
+                    # Use the response directly - load from saved file
+                    with open(os.path.join(OPTS.outputdir, filepfx + ".json"), "rt") as f:
+                        data = json.load(f)
+                        er = {"event": data["request"], "response": data["response"]}
 
                     # Make sure we have both the event and response dicts
                     if "event" not in er or "response" not in er:
@@ -525,8 +475,6 @@ def main():
                         help="invocation name of skill")
     parser.add_argument("-k", "--keep", action="store_const", const=True,
                         help="keep the event/response for each utterance")
-    parser.add_argument("-q", "--queueurl", type=str,
-                        help="SQS queue URL for results (optional)")
     parser.add_argument("-w", "--writeconfig",
                         help="path for generated configuration file")
 

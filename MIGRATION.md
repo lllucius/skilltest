@@ -43,7 +43,6 @@ Test Utterances → Alexa Request JSON → Lambda Function → Response JSON →
     "ttstasks": 1,
     "synth": "espeak",
     "invocation": "my skill",
-    "queueurl": "https://sqs.us-east-1.amazonaws.com/...",
     "email": "user@example.com",
     "password": "secret",
     "deviceid": "MyDevice",
@@ -66,7 +65,6 @@ Test Utterances → Alexa Request JSON → Lambda Function → Response JSON →
     "keep": false,
     "tasks": 1,
     "invocation": "my skill",
-    "queueurl": null,
     "lambda_dir": "./lambda",
     "lambda_module": "lambda_function",
     "lambda_handler": "lambda_handler"
@@ -92,7 +90,6 @@ Test Utterances → Alexa Request JSON → Lambda Function → Response JSON →
 - `lambda_handler` → name of your handler function (default: "lambda_handler")
 
 **Changed:**
-- `queueurl` → now optional (results are always saved to JSON files)
 - `inputdir` → deprecated but kept for compatibility
 - `regen` → deprecated but kept for compatibility
 
@@ -188,10 +185,7 @@ def lambda_handler(event, context):
    - `lambda_dir`: Path to your lambda function (e.g., "./lambda")
    - `lambda_module`: Module name (default: "lambda_function")
    - `lambda_handler`: Handler function (default: "lambda_handler")
-4. Make `queueurl` optional:
-   - Set to `null` if not using SQS
-   - Keep if you still want SQS validation
-5. Rename `avstasks` to `tasks`
+4. Rename `avstasks` to `tasks`
 
 ### Step 2: Update Test Definitions
 

@@ -271,7 +271,7 @@ class Tester(object):
                     for typename in typenames:
                         if typename not in types:
                             # Extract the slot name without curly braces for the error message
-                            slotname = typename[1:-1]
+                            slotname = typename.strip('{}')
                             print()
                             print("ERROR: Utterance contains slot type '%s' that is not defined in the 'types' section." % slotname)
                             print("       Utterance: %s" % utterance)

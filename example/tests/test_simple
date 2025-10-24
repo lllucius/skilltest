@@ -1,0 +1,10 @@
+{
+    "description":
+    [
+        "Simple test for direct lambda invocation."
+    ],
+    "utterances":
+    [
+        "text 'ForecastIntent For the forecast'"
+    ]
+}

@@ -6,15 +6,9 @@
     "bypass": false,
     "regen": false,
     "keep": false,
-    "avstasks": 1,
-    "ttstasks": 1,
-    "synth": "espeak",
-    "invocation": "your skill's invocation name",
-    "queueurl": "results SQS queue URL",
-    "email": "your AVS email address",
-    "password": "your AVS password",
-    "deviceid": "your AVS device type ID",
-    "clientid": "your AVS device clientid",
-    "secret": "your AVS device secret",
-    "redirect": "your AVS device redirect URL"
+    "tasks": 1,
+    "invocation": "example skill",
+    "lambda_dir": "./example/lambda",
+    "lambda_module": "lambda_function",
+    "lambda_handler": "lambda_handler"
 }

@@ -12,28 +12,20 @@
 from __future__ import print_function
 
 import argparse
-import base64
+import importlib.util
 import io
 import itertools
 import json
 import multiprocessing
-import numpy as np
 import os
 import random
 import re
-import requests
-import samplerate
 import shlex
-import soundfile
 import sys
 import traceback
-import types
-from boto3 import client as awsclient
-from bs4 import BeautifulSoup
 from concurrent.futures import ProcessPoolExecutor
 from copy import deepcopy
 from datetime import datetime
-from requests_toolbelt import MultipartDecoder
 from subprocess import Popen, PIPE, check_output
 
 try:
@@ -49,7 +41,8 @@ SUB_RE = re.compile(r"{(?P<var>.*?)\}[/\\]*")
 
 PLAT = sys.platform
 
-SQS = awsclient("sqs")
+# Intent name pattern to extract from utterances
+INTENT_RE = re.compile(r"^(\w+)\s+(.*)$")
 
 CFG = \
 {
@@ -60,54 +53,124 @@ CFG = \
     "bypass": False,
     "regen": False,
     "keep": False,
-    "avstasks": 1,
-    "ttstasks": 1,
-    "synth": "sapi" if PLAT == "win32" else "osx" if PLAT == "darwin" else "espeak",
+    "tasks": 1,
     "invocation":  "your skill's invocation name",
-    "queueurl": "results SQS queue URL",
-    "email": "your AVS email address",
-    "password": "your AVS password",
-    "clientid": "your AVS device clientid",
-    "secret": "your AVS device secret",
-    "deviceid": "your AVS device type ID",
-    "redirect": "your AVS device redirect URL"
+    "lambda_dir": "./lambda",
+    "lambda_module": "lambda_function",
+    "lambda_handler": "lambda_handler"
 }
 
-# Minimum required extra headers
-HEADERS = \
-{
-    # Required for both login and API
-    "Accept-Language": "en,*;q=0.1",
-    # Must be a "known" user agent, otherwise we don't get a "session-id" cookie
-    "User-Agent": "Links (2.14; CYGWIN_NT-10.0 2.6.1(0.305/5/3) x86_64; GNU C 5.4; text)"
-}
+# Intent name pattern to extract from utterances
+INTENT_RE = re.compile(r"^(\w+)\s+(.*)$")
 
-def run_tts(filepfx, text):
+def run_skill(filepfx, intent_name, slots, utterance):
+    """Invoke the local lambda function directly with an Alexa request"""
     try:
-        soundfile.write(os.path.join(OPTS.inputdir, filepfx + ".wav"),
-                        TTS().convert("alexa ask %s %s" % (OPTS.invocation, text)),
-                        16000,
-                        format="WAV")
+        # Create the Alexa request JSON
+        request = create_alexa_request(intent_name, slots, utterance)
+        
+        # Load and invoke the lambda function
+        response = invoke_lambda(request)
+        
+        # Save the response
+        with open(os.path.join(OPTS.outputdir, filepfx + ".json"), "wt") as outfile:
+            json.dump({"request": request, "response": response}, outfile, indent=2)
+            
+        return response
     except Exception as e:
-        print("Caught exception generating:")
-        print(text)
+        print("Caught exception invoking skill:")
+        print(utterance)
         print()
         traceback.print_exc()
         print()
         raise e
 
-def run_avs(filepfx):
-    try:
-        with open(os.path.join(OPTS.inputdir, filepfx + ".wav"), "rb") as infile:
-            with open(os.path.join(OPTS.outputdir, filepfx + ".mp3"), "wb") as outfile:
-                outfile.write(AVS().recognize(infile))
-    except Exception as e:
-        print("Caught exception recognizing:")
-        print(filepfx + ".wav")
-        print()
-        traceback.print_exc()
-        print()
-        raise e
+def create_alexa_request(intent_name, slots, utterance):
+    """Create an Alexa skill request JSON from intent name and slots"""
+    # Build slots dict
+    slot_dict = {}
+    for slot_name, slot_value in slots.items():
+        slot_dict[slot_name] = {
+            "name": slot_name,
+            "value": slot_value
+        }
+    
+    # Create the Alexa request structure
+    request = {
+        "version": "1.0",
+        "session": {
+            "new": True,
+            "sessionId": "SessionId.test-session-" + datetime.now().strftime("%Y%m%d%H%M%S"),
+            "application": {
+                "applicationId": "amzn1.ask.skill.test-skill-id"
+            },
+            "user": {
+                "userId": "amzn1.ask.account.TEST_USER_ID"
+            }
+        },
+        "request": {
+            "type": "IntentRequest",
+            "requestId": "EdwRequestId.test-request-" + datetime.now().strftime("%Y%m%d%H%M%S"),
+            "timestamp": datetime.now().isoformat() + "Z",
+            "locale": "en-US",
+            "intent": {
+                "name": intent_name,
+                "slots": slot_dict
+            }
+        }
+    }
+    
+    return request
+
+def invoke_lambda(event):
+    """Load and invoke the local lambda function"""
+    # Build the path to the lambda module
+    lambda_path = os.path.abspath(OPTS.lambda_dir)
+    module_file = os.path.join(lambda_path, OPTS.lambda_module + ".py")
+    
+    if not os.path.exists(module_file):
+        raise FileNotFoundError(f"Lambda function not found at {module_file}")
+    
+    # Add lambda directory to sys.path if not already there
+    if lambda_path not in sys.path:
+        sys.path.insert(0, lambda_path)
+    
+    # Load the module dynamically
+    spec = importlib.util.spec_from_file_location(OPTS.lambda_module, module_file)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    
+    # Get the handler function
+    if not hasattr(module, OPTS.lambda_handler):
+        raise AttributeError(f"Handler '{OPTS.lambda_handler}' not found in {OPTS.lambda_module}")
+    
+    handler = getattr(module, OPTS.lambda_handler)
+    
+    # Invoke the handler
+    response = handler(event, None)
+    
+    return response
+
+def extract_intent_and_slots(utterance, resolved, types_dict):
+    """Extract intent name and slots from an utterance"""
+    # Try to parse intent name from utterance file format
+    # Format: "IntentName utterance text with {slots}"
+    match = INTENT_RE.match(utterance.strip())
+    if match:
+        intent_name = match.group(1)
+        # Use the intent name from the utterance
+    else:
+        # Default intent name if not specified
+        intent_name = "TestIntent"
+    
+    # Extract slots from the types dictionary
+    slots = {}
+    for typename, value in types_dict.items():
+        # Remove braces from typename
+        slot_name = typename.strip("{}")
+        slots[slot_name] = value
+    
+    return intent_name, slots
 
 class Options(object):
     def __init__(self):
@@ -182,24 +245,10 @@ class Tester(object):
             if "config" in test:
                 OPTS.merge_dict(test["config"])
 
-            # Using the response queue?
+            # Using unit testing?
             if "unittest" in test or OPTS.keep:
-                # Make sure we can do it
-                if OPTS.queueurl is None:
-                    print("SQS queue URL needed if unit testing or keeping results...disabling")
-                    test["unittest"] = None
-                    OPTS.keep = False
-                else:
-                    # Must single thread AVS if unit testing or keeping results
-                    OPTS.avstasks = 1
-
-                    # Shouldn't be necessary, but clear the queue
-                    # (don't use purge_queue as if forces a 60 second delay between runs)
-                    while True:
-                        resp = SQS.receive_message(QueueUrl=OPTS.queueurl, WaitTimeSeconds=1)
-                        if resp is None or "Messages" not in resp:
-                            break
-                        SQS.delete_message(QueueUrl=OPTS.queueurl, ReceiptHandle=resp["Messages"][0]["ReceiptHandle"])
+                # Must single thread if unit testing or keeping results
+                OPTS.tasks = 1
 
             print()
             print("=" * 80)
@@ -239,7 +288,7 @@ class Tester(object):
                         resolved += utterance[last:]
 
                         print("Utterance:", utterance)
-                        print("    \---->", resolved)
+                        print("    \\---->", resolved)
                         filepfx = resolved.replace(" ", "_").replace("'", "")
                         tests.append([testname, utterance, resolved, filepfx, t])
 
@@ -254,62 +303,38 @@ class Tester(object):
                 for action in test["setup"]:
                     for val in self.get_values(action):
                         filepfx = "SETUP_" + val.replace(" ", "_").replace("'", "")
-                        run_tts(filepfx, val)
-                        run_avs(filepfx)
+                        # Extract intent and slots for setup action
+                        intent_name, slots = extract_intent_and_slots(val, val, {})
+                        run_skill(filepfx, intent_name, slots, val)
 
             print()
             print("=" * 80)
-            print("Generating voice input files")
+            print("Invoking lambda function directly")
             print("=" * 80)
             print()
 
-            with ProcessPoolExecutor(max_workers=OPTS.ttstasks) as executor:
-                for testname, utterance, resolved, filepfx, _ in tests:
-                    name = os.path.join(OPTS.inputdir, filepfx + ".wav")
-                    if not os.path.exists(name) or OPTS.regen:
-                        print("Generating:", resolved)
-                        if OPTS.ttstasks == 1:
-                            run_tts(filepfx, resolved)
-                        else:
-                            executor.submit(run_tts, filepfx, resolved)
-                    else:
-                        print("Reusing:", resolved)
-                executor.shutdown(wait=True)
-
-            print()
-            print("=" * 80)
-            print("Processing voice input files")
-            print("=" * 80)
-            print()
-
-            with ProcessPoolExecutor(max_workers=OPTS.avstasks) as executor:
+            with ProcessPoolExecutor(max_workers=OPTS.tasks) as executor:
                 for testname, utterance, resolved, filepfx, types in tests:
-                    print("Recognizing:", resolved)
-                    if OPTS.avstasks > 1:
-                        executor.submit(run_avs, filepfx)
+                    print("Processing:", resolved)
+                    
+                    # Extract intent name and slots from utterance
+                    intent_name, slots = extract_intent_and_slots(utterance, resolved, types)
+                    
+                    if OPTS.tasks > 1:
+                        executor.submit(run_skill, filepfx, intent_name, slots, resolved)
                         continue
-                    run_avs(filepfx)
+                    
+                    # Invoke the skill directly
+                    response = run_skill(filepfx, intent_name, slots, resolved)
 
                     # Continue to next utterance if we're not checking results
                     if "unittest" not in test and not OPTS.keep:
                         continue
 
-                    # Get the results message
-                    resp = SQS.receive_message(QueueUrl=OPTS.queueurl, WaitTimeSeconds=10)
-                    if resp is None or "Messages" not in resp:
-                        print("Expected a results message...none received")
-                        continue
-                    msg = resp["Messages"][0]
-
-                    # Delete it
-                    SQS.delete_message(QueueUrl=OPTS.queueurl, ReceiptHandle=msg["ReceiptHandle"])
-
-                    # Attempt to parse it
-                    try:
-                        er = json.loads(msg["Body"])
-                    except:
-                        print("Parsing results message failed")
-                        continue
+                    # Use the response directly - load from saved file
+                    with open(os.path.join(OPTS.outputdir, filepfx + ".json"), "rt") as f:
+                        data = json.load(f)
+                        er = {"event": data["request"], "response": data["response"]}
 
                     # Make sure we have both the event and response dicts
                     if "event" not in er or "response" not in er:
@@ -344,7 +369,7 @@ class Tester(object):
                                                 replace("{testsdir}", OPTS.testsdir)
 
                     p = Popen(unittest, shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-                    _, err = p.communicate(json.dumps(data))
+                    _, err = p.communicate(json.dumps(data).encode("UTF-8"))
 
                     leader = "Unittest:   "
                     err = err.decode("UTF-8").replace("\r\n", "\n").replace("\r", "\n")
@@ -361,11 +386,12 @@ class Tester(object):
                 print("=" * 80)
                 print()
 
-                for action in test["setup"]:
+                for action in test["cleanup"]:
                     for val in self.get_values(action):
                         filepfx = "CLEANUP_" + val.replace(" ", "_").replace("'", "")
-                        run_tts(filepfx, val)
-                        run_avs(filepfx)
+                        # Extract intent and slots for cleanup action
+                        intent_name, slots = extract_intent_and_slots(val, val, {})
+                        run_skill(filepfx, intent_name, slots, val)
 
         # Restore options
         OPTS = deepcopy(savedopts)
@@ -418,340 +444,37 @@ class Tester(object):
     def handle_text(self, args):
         return [args.text]
 
-class TTS(object):
-    def __init__(self):
-        pass
-
-    def convert(self, text):
-        if OPTS.synth == "espeak":
-            raw = self.espeakTTS(text)
-        elif OPTS.synth == "osx":
-            raw = self.osxTTS(text)
-        elif OPTS.synth == "sapi":
-            raw = self.sapiTTS(text)
-        return raw
-
-    def espeakTTS(self, text):
-        p = Popen("espeak -v en+m2 --stdin --stdout", shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-
-        out = p.communicate(text.encode("UTF-8"))[0]
-        raw, rate = soundfile.read(io.BytesIO(out))
-        return samplerate.resample(raw, 16000.0 / rate, "sinc_best")
-
-    def osxTTS(self, text):
-        p = Popen("tmp=$(mktemp) ; say --file-format=WAVE --data-format=LEI16@16000 -o ${tmp} && cat ${tmp} ; rm ${tmp}", shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-
-        out = p.communicate(bytes(text))[0]
-        return soundfile.read(io.BytesIO(out))[0]
-
-    def sapiTTS(self, text):
-        if PLAT == "win32":
-            # Need comtypes if we're using SAPI under native Windows (not WSL)
-            from comtypes.client import CreateObject
-            from comtypes.gen import SpeechLib
-
-            # We want 16kHz, 16-bit, mono audio
-            afmt = CreateObject("sapi.SpAudioFormat")
-            afmt.Type = SpeechLib.SAFT16kHz16BitMono
-
-            # Output audio goes to a memory stream
-            strm = CreateObject("sapi.SpMemoryStream")
-            strm.Format = afmt
-
-            # Create the voice (uses the default system voice)
-            spkr = CreateObject("sapi.SpVoice")
-            spkr.AllowOutputFormatChangesOnNextSet = False
-            spkr.AudioOutputStream = strm
-            spkr.Speak(text)
-
-            return np.fromstring(bytes(strm.GetData()), np.int16);
-
-        # Get powershell up and running
-        p = Popen("powershell.exe -NonInteractive -File -", shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=False, cwd="/mnt/c")
-
-        # Create the powershell commands
-        cmd = """
-              add-Type -AssemblyName System.Speech;
-              add-Type -AssemblyName System.IO;
-              $fmt = New-Object System.Speech.AudioFormat.SpeechAudioFormatInfo(16000, [System.Speech.AudioFormat.AudioBitsPerSample]::Sixteen, [System.Speech.AudioFormat.AudioChannel]::Mono);
-              $wav = New-Object System.IO.MemoryStream;
-              $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer;
-              $synth.SetOutputToAudioStream($wav, $fmt);
-              $synth.Speak('%s');
-              [Console]::Error.Write([System.convert]::ToBase64String($wav.ToArray()));
-              $synth.Dispose();
-              $wav.Dispose();
-              exit;
-              """ % text.replace("'", "''")
-
-        # Send them and get the response from stderr
-        out = p.communicate(cmd.encode("UTF-8"))[1]
-        return np.fromstring(base64.b64decode(out.decode("UTF-8")), np.int16)
-
-class AVS(object):
-    def __init__(self):
-        self.sess = requests.Session()
-        self.sess.mount("https://", requests.adapters.HTTPAdapter(max_retries=0))
-
-    def recognize(self, wav):
-        self.auth()
-
-        # make a copy of the headers
-        headers = deepcopy(HEADERS)
-
-        data = \
-        {
-            "messageHeader": 
-            {
-                "deviceContext": 
-                [
-                    {
-                        "name": "playbackState",
-                        "namespace": "AudioPlayer",
-                        "payload": 
-                        {
-                            "streamId": "",
-                            "offsetInMilliseconds": 0,
-                            "playerActivity": "IDLE"
-                        }
-                    }
-                ]
-            },
-            "messageBody": 
-            {
-                "profile": "alexa-close-talk",
-                "locale": "en-us",
-                "format": "audio/L16; rate=16000; channels=1"
-            }
-        }
-
-        files = \
-        [
-            ( 
-                "request",
-                (
-                    "request",
-                    json.dumps(data),
-                    "application/json; charset=UTF-8",
-                )
-            ),
-            (
-                "audio",
-                (
-                    "audio",
-                    wav,
-                    "audio/L16; rate=16000; channels=1"
-                )
-            )
-        ]
-
-        headers["Authorization"] = "Bearer %s" % OPTS.access
-
-        # Call AVS
-        url = "https://access-alexa-na.amazon.com/v1/avs/speechrecognizer/recognize"
-        try:
-            r = requests.post(url, headers=headers, files=files)
-        except:
-            wav.seek(0)
-            r = requests.post(url, headers=headers, files=files)
-
-        # Possibly refresh token and retry
-        if r.status_code == 403:
-            headers["Authorization"] = "Bearer %s" % self.refresh()
-            r = requests.post(url, headers=headers, files=files)
-
-        # If the request fails, retry
-        if r.status_code != 200:
-            #print(r.status_code)
-            #for header in r.headers:
-            #    print("HEADER:", header, ":", r.headers[header])
-            #print(r.content)
-            wav.seek(0)
-            r = requests.post(url, headers=headers, files=files)
-
-        try:
-            for part in MultipartDecoder.from_response(r).parts:
-                if part.headers[b"Content-Type"] == b"audio/mpeg":
-                    return part.content
-        except:
-            pass
-
-        # Request failed
-        print(r.status_code)
-        for header in r.headers:
-            print(header, ":", r.headers[header])
-        print(r.content)
-
-        return None
-
-    def auth(self):
-        # Make a copy of the headers
-        headers = deepcopy(HEADERS)
-
-        # Manually handle redirection so we can detect our (dummy) URL
-        def redirect_to(resp):
-            target = self.sess.get_redirect_target(resp)
-            while target is not None:
-                if target.startswith(OPTS.redirect):
-                    query = parse_qs(urlparse(target).query)
-                    return resp, query["code"][0] if "code" in query else None
-                resp =  self.sess.get(target, headers=headers, allow_redirects=False)
-                target = self.sess.get_redirect_target(resp)
-            return resp, None
-
-        scope_data = \
-        {
-            "alexa:all":
-            {
-                "productID": OPTS.deviceid,
-                "productInstanceAttributes":
-                {
-                    "deviceSerialNumber": "001"
-                }
-            }
-        }
-
-        data = \
-        {
-            "client_id": OPTS.clientid,
-            "scope": "alexa:all",
-            "scope_data": json.dumps(scope_data),
-            "response_type": "code",
-            "redirect_uri": OPTS.redirect
-        }
-
-        code = None
-
-        # Refrieve the login page
-        r = self.sess.get("https://www.amazon.com/ap/oa", headers=headers, params=data)
-
-        # Extract the form fields
-        form = BeautifulSoup(r.text, "html.parser").find("form", {"name": "acknowledgement-form"})
-        if form is not None:
-            data = {}
-            for field in form.find_all("input"):
-                if "name" in field.attrs and "value" in field.attrs:
-                    data[field.attrs["name"]] = field.attrs["value"]
-
-            # Approve it
-            data["acknowledgementApproved"] = ""
-
-            # Needed for login success
-            headers["Referer"] = r.request.url
-
-            # Post it.  Do not need to redirect here since the response has all we need
-            r = self.sess.get(form.attrs["action"], params=data, headers=headers, allow_redirects=False)
-            r, code = redirect_to(r)
-
-        if code is None:
-            # Extract the form fields
-            form = BeautifulSoup(r.text, "html.parser").find("form", {"name": "signIn"})
-            if form is not None:
-                data = {}
-                for field in form.find_all("input"):
-                    if "name" in field.attrs and "value" in field.attrs:
-                        data[field.attrs["name"]] = field.attrs["value"]
-
-                # Set the email and password
-                data["email"] = OPTS.email
-                data["password"] = OPTS.password
-
-                # Needed for login success
-                self.sess.cookies["ap-fid"] = '""'
-                headers["Referer"] = r.request.url
-
-                # Post it.
-                r = self.sess.post(form.attrs["action"], data=data, headers=headers, allow_redirects=False)
-                r, code = redirect_to(r)
-                
-        if code is None:
-            form = BeautifulSoup(r.text, "html.parser").find("form", {"name": "consent-form"})
-            if form is not None:
-                data = {}
-                for field in form.find_all("input"):
-                    if "name" in field.attrs and "value" in field.attrs:
-                        data[field.attrs["name"]] = field.attrs["value"]
-
-                # Approve it
-                data["consentApproved"] = ""
-
-                # Needed for login success
-                headers["Referer"] = r.request.url
-
-                # Post it.  Do not need to redirect here since the response has all we need
-                r = self.sess.get(form.attrs["action"], params=data, headers=headers, allow_redirects=False)
-                r, code = redirect_to(r)
-
-        data = \
-        {
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": OPTS.redirect,
-            "client_id": OPTS.clientid,
-            "client_secret": OPTS.secret
-        }
-
-        # Retreive the access code
-        r = self.sess.post("https://api.amazon.com/auth/o2/token", headers=headers, data=data)
-        data = r.json()
-        if "access_token" in data and "refresh_token" in data:
-            OPTS.access = data["access_token"]
-            OPTS.refresh = data["refresh_token"]
-
-    def refresh(self):
-        # make a copy of the headers
-        headers = deepcopy(HEADERS)
-
-        data = \
-        {
-            "grant_type": "refresh_token",
-            "refresh_token": OPTS.refresh,
-            "client_id": OPTS.clientid,
-            "client_secret": OPTS.secret
-        }
-
-        # Retrieve a new refresh token
-        r = self.sess.post("https://api.amazon.com/auth/o2/token", headers=headers, data=data)
-        data = r.json()
-        if "access_token" in data and "refresh_token" in data:
-            OPTS.access = data["access_token"]
-            OPTS.refresh = data["refresh_token"]
-
-        return OPTS.access
-
 def main():
     global OPTS
     multiprocessing.log_to_stderr()
 
-    parser = argparse.ArgumentParser(description='Alexa Skill Tester')
+    parser = argparse.ArgumentParser(description='Alexa Skill Tester - Direct Lambda Invocation')
     parser.add_argument("file", nargs="*",
                         help="name of test file(s)")
     parser.add_argument("-C", "--config", type=argparse.FileType('rt'),
                         help="path to configuration file")
     parser.add_argument("-I", "--inputdir", type=str,
-                        help="path to voice input directory")
+                        help="path to input directory (for compatibility)")
     parser.add_argument("-O", "--outputdir", type=str,
-                        help="path to voice output directory")
+                        help="path to output directory for results")
     parser.add_argument("-S", "--skilldir", type=str,
                         help="path to skill directory")
     parser.add_argument("-T", "--testsdir", type=str,
                         help="path to tests directory")
-    parser.add_argument("-a", "--avstasks", type=int,
-                        help="number of concurrent AVS requests")
+    parser.add_argument("-L", "--lambda_dir", type=str,
+                        help="path to lambda function directory")
+    parser.add_argument("-M", "--lambda_module", type=str,
+                        help="lambda module name (default: lambda_function)")
+    parser.add_argument("-H", "--lambda_handler", type=str,
+                        help="lambda handler function name (default: lambda_handler)")
+    parser.add_argument("-t", "--tasks", type=int,
+                        help="number of concurrent tasks")
     parser.add_argument("-b", "--bypass", action="store_const", const=True,
-                        help="bypass calling AVS to process utterance")
+                        help="bypass calling lambda to process utterance")
     parser.add_argument("-i", "--invocation", type=str,
                         help="invocation name of skill")
     parser.add_argument("-k", "--keep", action="store_const", const=True,
                         help="keep the event/response for each utterance")
-    parser.add_argument("-q", "--queueurl", type=str,
-                        help="SQS queue URL for results")
-    parser.add_argument("-r", "--regen", action="store_const", const=True,
-                        help="regenerate voice input files")
-    parser.add_argument("-s", "--synth", choices=["espeak", "osx", "sapi"],
-                        help="TTS synthesizer to use")
-    parser.add_argument("-t", "--ttstasks", type=int,
-                        help="number of concurrent TTS conversions")
     parser.add_argument("-w", "--writeconfig",
                         help="path for generated configuration file")
 
@@ -779,6 +502,8 @@ def main():
     if args.config:
         OPTS = Options()
         OPTS.merge_dict(json.load(args.config))
+        args.config.close()
+        args.config = None
 
     # Merge args into the options
     OPTS.merge_args(args)
